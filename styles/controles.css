@@ -657,3 +657,9 @@ mark { background: var(--m-amarillo); color: inherit; border-radius: 3px; paddin
 .definicion { margin: 0 0 .7rem; font-family: var(--serif); font-size: 1rem; line-height: 1.55; }
 .rejilla.numeros button.ultimo { border-style: dashed; border-color: var(--tinta-2); }
 .pastillas.recientes button { font-family: var(--serif); font-size: .98rem; color: var(--tinta); }
+
+/* --- fondo con IA --- */
+.caja-ia:empty { display: none; }
+.caja-ia { margin-top: 1.2rem; padding: 0 1rem 1rem; border: 1px solid var(--linea); border-radius: 12px; }
+.caja-ia h3 { margin-top: 1rem; }
+.caja-ia .nota { margin-top: .6rem; }

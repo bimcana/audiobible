@@ -23,6 +23,7 @@ import { abrirImportador, abrirGestion } from './ui/importar.js';
 import { crearEstudio } from './estudio.js';
 import { desbloquear } from './importar/privada.js';
 import { crearCompartir } from './ui/compartir.js';
+import { listarModelos, generarFondo, instruccion, PROPORCION } from './ia/google.js';
 import { versiculoDelDia } from './datos/versiculo-del-dia.js';
 import { anotar } from './almacen/historial.js';
 import { cuerpoPlanes } from './ui/planes.js';
@@ -748,14 +749,25 @@ function irAVista(vista) {
   if (vista === 'buscar') estudio.montarBusqueda($('buscarCuerpo'));
   // Sin nada elegido, Compartir empieza con el versículo del día.
   if (vista === 'compartir' && taller.vacio) compartirDelDia();
+  else if (vista === 'compartir') tallerDe().refrescar();
 }
 
 /* ---------- compartir y versículo del día ---------- */
 
+// La IA de imágenes solo existe si el lector puso su clave de Google y eligió modelo.
+function servicioDeIA() {
+  const { iaClave: clave, iaModelo: modelo } = estado.ajustes;
+  if (!clave || !modelo) return null;
+  return {
+    modelo: modelo.nombre,
+    generar: (datos) => generarFondo({ clave, modelo, prompt: instruccion(datos), proporcion: PROPORCION[datos.formato] }),
+  };
+}
+
 // Se crea al primer uso, cuando el idioma de la interfaz ya está fijado.
 let tallerCreado = null;
 function tallerDe() {
-  tallerCreado ??= crearCompartir({ contenedor: $('compartirCuerpo'), aviso });
+  tallerCreado ??= crearCompartir({ contenedor: $('compartirCuerpo'), aviso, ia: servicioDeIA });
   return tallerCreado;
 }
 const taller = { get vacio() { return tallerDe().vacio; }, abrir: (datos) => tallerDe().abrir(datos) };
@@ -915,6 +927,7 @@ function conectar() {
   $('btnAjustes').addEventListener('click', () => abrirAjustes({
     ajustes: estado.ajustes,
     cambiar: cambiarAjustes,
+    ia: { listar: listarModelos },
     privada: { desbloquear, alDesbloquear: (ficha) => { cerrarHoja(); alGuardarPropia(ficha); } },
     alVerLicencias: () => abrirLicencias({ catalogo: estado.catalogo, volver: () => $('btnAjustes').click() }),
     almacen: {

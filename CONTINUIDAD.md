@@ -509,3 +509,43 @@ diccionario de Easton (1897, dominio público; `data/diccionario/en/`,
 generado con `node herramientas/diccionario.mjs`). No se encontró ningún
 diccionario bíblico libre en español en un formato utilizable; con versiones
 en español se muestra solo la concordancia y se dice por qué.
+
+---
+
+## 16. Fondos con IA, opcionales (2026-10-02)
+
+Se activa en Ajustes → **Imágenes con IA** poniendo una clave de Google AI
+propia. Sin clave, la app no cambia en nada. Todo está en `src/ia/google.js`.
+
+**Los modelos no están escritos en el código.** `listarModelos()` pide la
+lista a Google (`GET /v1beta/models`) y `elegirModelos()` se queda con los que
+crean imágenes y ofrece **los tres más recientes y capaces**: primero la
+generación más nueva (el número del nombre), dentro de ella el más capaz
+(ultra > pro > flash > lite), y un provisional solo si no existe ya su versión
+estable. La lista se vuelve a pedir cada vez que se abre Ajustes, así que un
+modelo nuevo aparece sin tocar la app. Si el elegido deja de existir, pasa a
+valer el primero.
+
+**La IA pinta solo el fondo; el texto lo escribe la app.** La instrucción
+(`instruccion()`) pide una imagen inspirada en el versículo, con el estilo
+elegido, la proporción del formato y la zona donde irá el texto despejada, y
+prohíbe expresamente cualquier letra. Así la Escritura sale siempre exacta y
+con la misma tipografía que el resto, en vez de depender de que un modelo
+escriba bien.
+
+**Dos formas de pedir la imagen.** La documentación de Google muestra hoy un
+endpoint nuevo (`POST /v1beta/interactions`); el clásico es
+`models/{id}:generateContent`. `generarFondo()` prueba primero el que el
+modelo declara y, si falla por la forma de la petición, el otro.
+`extraerImagen()` busca la imagen en la respuesta sea cual sea su forma.
+
+> ⚠️ **Sin probar con una clave real.** No había clave disponible. Está
+> probado con respuestas de Google simuladas en el navegador (clave rechazada,
+> lista de modelos, fallo del endpoint clásico y éxito del nuevo, imagen
+> dibujada y exportada) y con `pruebas/ia.test.mjs`. Lo incierto es el formato
+> exacto que Google espera hoy para la proporción de la imagen; si la primera
+> generación real falla, el mensaje de error de Google se muestra tal cual en
+> la pestaña Compartir.
+
+La clave se guarda en `localStorage` del dispositivo y viaja solo a Google, en
+la cabecera `x-goog-api-key`. El uso se factura a la cuenta del lector.

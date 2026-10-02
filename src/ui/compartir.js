@@ -4,6 +4,7 @@
 import { t } from '../i18n/textos.js';
 import { FOTOS, LISOS, fotosPara, urlFoto } from '../datos/fondos.js';
 import { el, pastillas } from './hoja.js';
+import { ESTILOS_IA } from '../ia/google.js';
 
 const ANCHO = 1080;
 const FORMATOS = { cuadrado: 1080, vertical: 1350, historia: 1920 };
@@ -28,12 +29,15 @@ function renglones(ctx, texto, ancho) {
   return salida;
 }
 
-export function crearCompartir({ contenedor, aviso }) {
+// ia() → null si el lector no ha puesto su clave, o {generar({texto, estilo, posicion, formato}) → Promise<dataURL>, modelo}
+export function crearCompartir({ contenedor, aviso, ia = () => null }) {
   const estado = {
     texto: '', referencia: '', sigla: '',
     formato: 'vertical', alineacion: 'centro', posicion: 'centro', fuente: 'clasica',
     escala: 1, velo: 0.45, fondo: { tipo: 'liso', id: 'tinta' },
+    estilo: 'foto',
   };
+  let creada = null;                // la última imagen generada con IA
   const lienzo = el('canvas', { class: 'lienzo', role: 'img' });
   const ctx = lienzo.getContext('2d');
   const fotos = new Map();           // "id/alto" → Promise<HTMLImageElement>
@@ -69,6 +73,7 @@ export function crearCompartir({ contenedor, aviso }) {
 
     let foto = null;
     let claro = true;
+    if (estado.fondo.tipo === 'ia' && creada) foto = creada;
     if (estado.fondo.tipo === 'foto') {
       lienzo.classList.add('cargando');
       try {
@@ -86,7 +91,11 @@ export function crearCompartir({ contenedor, aviso }) {
     lienzo.height = alto;
 
     if (foto) {
-      ctx.drawImage(foto, 0, 0, ANCHO, alto);
+      // Se recorta para cubrir el lienzo: una imagen creada con IA puede no tener su proporción exacta.
+      const escalaFoto = Math.max(ANCHO / foto.naturalWidth, alto / foto.naturalHeight);
+      const w = foto.naturalWidth * escalaFoto;
+      const h = foto.naturalHeight * escalaFoto;
+      ctx.drawImage(foto, (ANCHO - w) / 2, (alto - h) / 2, w, h);
       ctx.fillStyle = `rgba(0, 0, 0, ${estado.velo})`;
       ctx.fillRect(0, 0, ANCHO, alto);
     } else {
@@ -206,10 +215,51 @@ export function crearCompartir({ contenedor, aviso }) {
       b.style.background = `linear-gradient(${arriba}, ${abajo})`;
       tira.append(b);
     }
+    if (creada) {
+      const b = el('button', { type: 'button', 'data-tipo': 'ia', 'data-id': 'ia', 'aria-label': t('ia.creada'), onclick: () => { estado.fondo = { tipo: 'ia', id: 'ia' }; marcarFondo(); dibujar(); } },
+        el('img', { src: creada.src, alt: '', width: 60, height: 75 }));
+      tira.prepend(b);
+    }
     if (!todasLasFotos) {
       tira.append(el('button', { type: 'button', class: 'mas', text: t('comp.masFotos', { n: FOTOS.length - VISIBLES }), onclick: () => { todasLasFotos = true; pintarFondos(); } }));
     }
     marcarFondo();
+  }
+
+  /* ---------- fondo con IA (solo si el lector puso su clave) ---------- */
+
+  const cajaIA = el('div', { class: 'caja-ia' });
+
+  function pintarIA() {
+    const servicio = ia();
+    cajaIA.replaceChildren();
+    if (!servicio) return;
+    const estadoIA = el('p', { class: 'nota', role: 'status', text: t('ia.con', { modelo: servicio.modelo }) });
+    const boton = el('button', { type: 'button', class: 'boton secundario ancho', text: t('ia.crear') });
+    boton.addEventListener('click', async () => {
+      boton.disabled = true;
+      estadoIA.classList.remove('campo-error');
+      estadoIA.textContent = t('ia.creando');
+      lienzo.classList.add('cargando');
+      try {
+        const datos = await servicio.generar({ texto: estado.texto, estilo: estado.estilo, posicion: estado.posicion, formato: estado.formato });
+        const img = new Image();
+        await new Promise((listo, fallo) => { img.onload = listo; img.onerror = fallo; img.src = datos; });
+        creada = img;
+        estado.fondo = { tipo: 'ia', id: 'ia' };
+        pintarFondos();
+        estadoIA.textContent = t('ia.con', { modelo: servicio.modelo });
+      } catch (err) {
+        estadoIA.classList.add('campo-error');
+        estadoIA.textContent = t({ clave: 'ia.error.clave', red: 'ia.error.red', cuota: 'ia.error.cuota', sinImagen: 'ia.error.sinImagen' }[err?.codigo] ?? 'ia.error.servicio') + (err?.codigo === 'peticion' || err?.codigo === 'servicio' ? ` ${err.message}` : '');
+      }
+      boton.disabled = false;
+      dibujar();
+    });
+    cajaIA.append(
+      el('h3', { text: t('ia.fondo') }),
+      pastillas(ESTILOS_IA.map((e) => [e, t(`ia.estilo.${e}`)]), estado.estilo, (e) => { estado.estilo = e; }),
+      el('div', { class: 'aire' }), boton, estadoIA);
   }
 
   const titulo = el('p', { class: 'comp-ref' });
@@ -229,6 +279,7 @@ export function crearCompartir({ contenedor, aviso }) {
     el('div', { class: 'taller-controles' },
       el('h3', { text: t('comp.fondo') }), tira,
       el('p', { class: 'nota', text: t('comp.credito') }),
+      cajaIA,
       el('h3', { text: t('comp.formato') }), opcion('formato', ['cuadrado', 'vertical', 'historia']),
       el('h3', { text: t('comp.alineacion') }), opcion('alineacion', ['izquierda', 'centro', 'derecha']),
       el('h3', { text: t('comp.posicion') }), opcion('posicion', ['arriba', 'centro', 'abajo']),
@@ -245,12 +296,16 @@ export function crearCompartir({ contenedor, aviso }) {
       Object.assign(estado, { texto, referencia, sigla });
       estado.fondo = { tipo: 'foto', id: fotosPara(texto)[0].id };
       todasLasFotos = false;
+      creada = null;
+      pintarIA();
       titulo.textContent = `${referencia} · ${sigla}`;
       vacio.hidden = true;
       taller.hidden = false;
       pintarFondos();
       dibujar();
     },
+    // Tras cambiar la clave o el modelo en Ajustes.
+    refrescar: pintarIA,
     get vacio() { return !estado.texto; },
   };
 }

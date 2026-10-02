@@ -189,6 +189,68 @@ function seccionAlmacen({ uso, nombre, borrar }) {
 
 // --- ajustes generales ---
 
+// Imágenes con IA: la clave de Google del lector y el modelo con el que se
+// crean los fondos. La lista de modelos se pide a Google cada vez.
+// listar(clave) → Promise<[{id, nombre, descripcion, metodos}]>
+function seccionIA({ ajustes, cambiar, listar }) {
+  const campo = el('input', {
+    class: 'campo', type: 'password', value: ajustes.iaClave, placeholder: t('ia.claveEj'), 'aria-label': t('ia.clave'),
+    autocomplete: 'off', spellcheck: 'false',
+  });
+  const estado = el('p', { class: 'nota', role: 'status' });
+  const lista = el('div', { class: 'lista', role: 'radiogroup', 'aria-label': t('ia.modelo') });
+  const boton = el('button', { class: 'boton', text: t('ia.comprobar') });
+
+  function pintarModelos(modelos) {
+    lista.replaceChildren();
+    // El elegido sigue valiendo si Google aún lo ofrece; si no, el primero.
+    let elegido = modelos.find((m) => m.id === ajustes.iaModelo?.id) ?? modelos[0];
+    if (elegido && elegido.id !== ajustes.iaModelo?.id) cambiar({ iaModelo: { id: elegido.id, nombre: elegido.nombre, metodos: elegido.metodos } });
+    for (const m of modelos) {
+      lista.append(el('button', {
+        type: 'button', class: 'opcion sola', role: 'radio', 'aria-checked': String(m.id === elegido?.id),
+        onclick: (e) => {
+          for (const b of lista.children) b.setAttribute('aria-checked', String(b === e.currentTarget));
+          cambiar({ iaModelo: { id: m.id, nombre: m.nombre, metodos: m.metodos } });
+        },
+      }, el('span', {}, el('strong', { text: m.nombre }), el('small', { text: m.descripcion ? `${m.id} · ${m.descripcion}` : m.id }))));
+    }
+  }
+
+  async function comprobar() {
+    const clave = campo.value.trim();
+    estado.classList.remove('campo-error');
+    lista.replaceChildren();
+    if (!clave) {
+      cambiar({ iaClave: '', iaModelo: null });
+      estado.textContent = t('ia.apagada');
+      return;
+    }
+    boton.disabled = true;
+    estado.textContent = t('ia.comprobando');
+    try {
+      const modelos = await listar(clave);
+      cambiar({ iaClave: clave });
+      if (!modelos.length) {
+        estado.classList.add('campo-error');
+        estado.textContent = t('ia.sinModelos');
+      } else {
+        estado.textContent = t('ia.lista');
+        pintarModelos(modelos);
+      }
+    } catch (err) {
+      estado.classList.add('campo-error');
+      estado.textContent = t({ clave: 'ia.error.clave', red: 'ia.error.red' }[err.codigo] ?? 'ia.error.servicio');
+    }
+    boton.disabled = false;
+  }
+
+  if (ajustes.iaClave) comprobar();
+  return el('div', {},
+    el('form', { class: 'fila-campo', onsubmit: (e) => { e.preventDefault(); comprobar(); } }, campo, boton),
+    estado, lista);
+}
+
 // Campo para escribir la clave de una versión privada.
 // desbloquear(texto) → Promise<ficha>; lanza Error con .codigo
 function seccionPrivada({ desbloquear, alDesbloquear }) {
@@ -220,7 +282,7 @@ function seccionPrivada({ desbloquear, alDesbloquear }) {
     estado);
 }
 
-export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen, alVerLicencias, privada }) {
+export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen, alVerLicencias, privada, ia }) {
   const campo = el('input', { class: 'campo', type: 'url', value: ajustes.motor, 'aria-label': t('aj.motor'), autocomplete: 'off', spellcheck: 'false' });
   const cuerpo = el('div', {},
     el('h3', { text: t('aj.lectura') }),
@@ -231,6 +293,10 @@ export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen, alVerL
     el('p', { class: 'nota', text: t('priv.nota') }),
     el('div', { class: 'aire' }),
     seccionPrivada(privada),
+    el('h3', { text: t('ia.titulo') }),
+    el('p', { class: 'nota', text: t('ia.nota') }),
+    el('div', { class: 'aire' }),
+    seccionIA({ ajustes, cambiar, listar: ia.listar }),
     el('h3', { text: t('alm.titulo') }),
     el('p', { class: 'nota', text: t('alm.nota') }),
     el('div', { class: 'aire' }),
