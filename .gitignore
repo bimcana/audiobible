@@ -1,0 +1,9 @@
+# Archivos del usuario con derechos de autor: nunca se publican
+NVI/
+
+.claude/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
