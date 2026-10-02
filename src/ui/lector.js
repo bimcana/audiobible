@@ -13,6 +13,7 @@ const dentro = (rangos, c) => rangos.some(([a, b]) => c >= a && c < b);
 
 function pintarPasaje(pasaje, indice, capitular) {
   const seccion = crear('section', 'pasaje');
+  const numeros = new Map();       // número de versículo → su <sup>
   seccion.dataset.i = indice;
   for (const titulo of pasaje.titulos) seccion.append(crear('h2', 'titulo', titulo));
 
@@ -53,7 +54,10 @@ function pintarPasaje(pasaje, indice, capitular) {
       const v = versoEn.get(c);
       verso = v.n;
       if (!primera && !lineaEn.has(c)) destino.append(crear('span', 'corte'));
-      destino.append(crear('sup', 'vn', v.f ? `${v.n}-${v.f}` : v.n));
+      const sup = crear('sup', 'vn', v.f ? `${v.n}-${v.f}` : v.n);
+      sup.dataset.v = v.n;
+      numeros.set(v.n, sup);
+      destino.append(sup);
     }
 
     let clase = 'w';
@@ -65,11 +69,27 @@ function pintarPasaje(pasaje, indice, capitular) {
     palabras.push({ el, c, ce, k, verso });
     primera = false;
   }
-  return { el: seccion, palabras, oraciones, iluminada: -1 };
+  return { el: seccion, palabras, oraciones, numeros, iluminada: -1 };
+}
+
+// La otra versión, junto al pasaje: los versículos que caen en su tramo.
+function pintarParalelo(pasaje, siguiente, paralelo) {
+  const desde = pasaje.versos[0]?.n;
+  if (desde === undefined) return null;
+  const hasta = siguiente?.versos[0]?.n ?? Infinity;
+  const caja = crear('p', 'paralelo');
+  caja.lang = paralelo.idioma;
+  for (const [n, v] of paralelo.versos) {
+    if (n < desde || n >= hasta) continue;
+    if (caja.childNodes.length) caja.append(' ');
+    caja.append(crear('sup', 'vn', v.f ? `${n}-${v.f}` : n), v.texto);
+  }
+  return caja.childNodes.length ? caja : null;
 }
 
 // Pinta el capítulo entero y devuelve la vista para el resaltado.
-export function pintarCapitulo(raiz, { nombreLibro, numero, pasajes, pie, accion }) {
+// paralelo: {idioma, versos: Map<n, {texto, f}>} para comparar con otra versión.
+export function pintarCapitulo(raiz, { nombreLibro, numero, pasajes, pie, accion, paralelo = null }) {
   raiz.replaceChildren();
   const cabeza = crear('header', 'cap-cabeza');
   cabeza.append(crear('p', 'cap-libro', nombreLibro));
@@ -82,11 +102,39 @@ export function pintarCapitulo(raiz, { nombreLibro, numero, pasajes, pie, accion
   const vista = pasajes.map((pasaje, i) => {
     const capitular = i === primero && numero !== null ? String(numero) : null;
     const v = pintarPasaje(pasaje, i, capitular);
+    if (paralelo) {
+      // El tramo llega hasta el primer versículo del siguiente pasaje con versículos.
+      const siguiente = pasajes.slice(i + 1).find((p) => p.versos.length);
+      const otro = pintarParalelo(pasaje, siguiente, paralelo);
+      if (otro) { v.el.classList.add('con-paralelo'); v.el.append(otro); }
+    }
     raiz.append(v.el);
     return v;
   });
   if (pie) raiz.append(pie);
   return vista;
+}
+
+// Subrayados, notas y marcadores sobre el capítulo ya pintado.
+// marcas: {[n]: {c, nota, m}}
+export function pintarMarcas(vista, marcas) {
+  for (const v of vista) {
+    for (const p of v.palabras) {
+      const color = marcas[p.verso]?.c ?? '';
+      if ((p.el.dataset.color ?? '') !== color) {
+        if (color) p.el.dataset.color = color; else delete p.el.dataset.color;
+      }
+    }
+    for (const [n, sup] of v.numeros) {
+      sup.classList.toggle('con-nota', Boolean(marcas[n]?.nota));
+      sup.classList.toggle('con-marcador', Boolean(marcas[n]?.m));
+    }
+  }
+}
+
+// versos: Set de números de versículo seleccionados.
+export function pintarSeleccion(vista, versos) {
+  for (const v of vista) for (const p of v.palabras) p.el.classList.toggle('sel', versos.has(p.verso));
 }
 
 export function mensajeCarga(raiz, texto) {

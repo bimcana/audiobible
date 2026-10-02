@@ -11,6 +11,7 @@ export function ajustesIniciales() {
     idioma: idiomaDelDispositivo(),       // idioma de la interfaz
     versionEs: 'rvg',
     versionEn: 'kjv',
+    comparar: null,                       // id de la versión que se muestra al lado
     tema: prefiereOscuro() ? 'noche' : 'papel',
     fuente: 'clasica',                    // clasica | moderna | legible
     tamano: 21,

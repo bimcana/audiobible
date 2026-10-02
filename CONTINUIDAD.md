@@ -3,7 +3,7 @@
 Guía para retomar el proyecto en otra sesión: **qué es**, **cómo está montado**,
 **qué se probó y descartó** y **qué no se debe romper**.
 
-Última actualización: 2026-10-01 · fases 1 a 4 terminadas (textos, lector y voz, importador, sin conexión)
+Última actualización: 2026-10-01 · fases 1 a 5 terminadas (textos, lector y voz, importador, sin conexión, estudio)
 
 ---
 
@@ -17,8 +17,8 @@ Los textos van incluidos; no se suben archivos.
 - **Especificación:** `docs/superpowers/specs/2026-10-01-audiobible-design.md`
 - **Planes por fase:** `docs/superpowers/plans/`
 
-Fases: 1 textos ✅ · 2 lector y voz ✅ · 3 importador local ✅ · 4 sin conexión ✅ ·
-5 estudio · 6 planes, inglés y licencias.
+Fases: 1 textos ✅ · 2 lector y voz ✅ · 3 importador local ✅ · 4 sin conexión ✅ · 5 estudio ✅ ·
+6 planes y licencias.
 
 ---
 
@@ -316,3 +316,43 @@ motor bloqueadas, la lectura arranca igual.
 
 **Sin probar:** instalación como app en iPhone y Android, y el límite de
 almacenamiento real de Safari.
+
+---
+
+## 10. Estudio (fase 5)
+
+Todo vive en `src/estudio.js`, que recibe de la app solo lo que necesita
+(`estado`, `irA`, `aviso`, `cargarLibro`). Los datos, en
+`src/almacen/marcas.js` y `src/datos/busqueda.js`.
+
+**Subrayados, notas y marcadores se guardan por referencia, no por versión.**
+Un documento por capítulo (`JHN.3`) con sus versículos. Lo subrayado en la RVG
+aparece al leer la KJV o la NVI importada. Cinco colores; cada tema tiene sus
+propios tonos para que el texto siga leyéndose.
+
+**Cómo se selecciona un versículo.** Tocando su número; con pulsación larga
+sobre el texto (dedo); o con el botón derecho (ratón). Un toque normal sobre el
+texto sigue llevando la lectura a esa oración, salvo que ya haya una selección
+abierta: entonces añade o quita versículos. `estudio.alTocar()` decide si el
+toque es suyo antes de que la app mueva la lectura.
+
+**La búsqueda no usa un worker.** El plan lo preveía, pero recorrer los 31 000
+versículos de una versión tarda milisegundos; lo lento es descargar los 66
+libros la primera vez (unos 4 s), y eso no lo arregla un worker. El índice se
+guarda en memoria para una sola versión. Busca palabras enteras, sin tildes ni
+mayúsculas; entre comillas, la frase exacta. Si lo escrito es una referencia,
+ofrece ir a ella.
+
+**La comparación se alinea por pasaje, no por versículo.** Junto a cada
+párrafo de la versión principal van los versículos de la otra que caen en su
+tramo (del primer versículo del pasaje al primero del siguiente). Alinear
+versículo a versículo habría obligado a partir los párrafos y a rehacer el
+karaoke. En pantallas de 1 000 px o más van en dos columnas; en el móvil, la
+otra versión queda debajo, en tono más suave. La voz y el karaoke siguen a la
+principal.
+
+**Referencias cruzadas:** `data/refs/{LIBRO}.json`, con la vista previa del
+texto en la versión que se está leyendo.
+
+**Copia de seguridad de las notas:** un JSON que se descarga y se restaura
+desde «Mis notas». Al restaurar, ante un mismo versículo gana lo más reciente.

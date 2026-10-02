@@ -187,3 +187,58 @@ p.capitular.suelta {
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
 }
+
+/* --- subrayados, notas y marcadores --- */
+
+:root {
+  --m-amarillo: #F7E27A;
+  --m-rosa: #F5B6C8;
+  --m-azul: #A9D3F2;
+  --m-verde: #B7E0A8;
+  --m-naranja: #F6C48A;
+}
+:root[data-tema='noche'], :root[data-tema='negro'] {
+  --m-amarillo: #6B5A14;
+  --m-rosa: #6E2F45;
+  --m-azul: #1F4E73;
+  --m-verde: #2F5A2A;
+  --m-naranja: #70431A;
+}
+
+.w[data-color] { background: var(--m-color); box-shadow: -.14em 0 0 var(--m-color), .14em 0 0 var(--m-color); border-radius: 0; }
+[data-color='amarillo'] { --m-color: var(--m-amarillo); }
+[data-color='rosa'] { --m-color: var(--m-rosa); }
+[data-color='azul'] { --m-color: var(--m-azul); }
+[data-color='verde'] { --m-color: var(--m-verde); }
+[data-color='naranja'] { --m-color: var(--m-naranja); }
+
+.vn { cursor: pointer; }
+.vn.con-nota::after { content: '✎'; margin-left: .2em; color: var(--rubrica); font-size: 1.15em; }
+.vn.con-marcador { color: var(--rubrica); font-weight: 700; }
+.vn.con-marcador::before { content: '▸'; margin-right: .1em; }
+
+/* Versículo seleccionado: un subrayado de puntos, que no compite con el color. */
+.w.sel { text-decoration: underline dotted; text-decoration-color: var(--tinta-2); text-underline-offset: .22em; }
+.seleccionando .w { cursor: copy; }
+
+/* --- comparación con otra versión --- */
+
+.paralelo {
+  margin: .6em 0 0;
+  padding-left: .9em;
+  border-left: 2px solid var(--linea);
+  font-size: .86em;
+  line-height: 1.5;
+  color: var(--tinta-2);
+  text-wrap: pretty;
+}
+.paralelo .vn { cursor: default; }
+.leyendo .pasaje.activo .paralelo { opacity: .75; }
+
+@media (min-width: 1000px) {
+  .comparando #capitulo { max-width: calc(var(--medida) * 1.85); }
+  .comparando .pasaje.con-paralelo { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); column-gap: 2.6rem; align-items: start; }
+  .comparando .pasaje.con-paralelo > .titulo, .comparando .pasaje.con-paralelo > .capitular.suelta { grid-column: 1 / -1; }
+  .comparando .paralelo { margin: .25em 0 0; }
+  .comparando .pasaje:not(.con-paralelo) { max-width: 54%; }
+}

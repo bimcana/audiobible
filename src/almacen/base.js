@@ -1,7 +1,8 @@
 // La base de datos del dispositivo (IndexedDB). Aquí vive todo lo que no cabe
-// en localStorage: las Biblias que el lector importa y el audio guardado.
+// en localStorage: las Biblias que el lector importa, el audio guardado, sus
+// subrayados y notas, y el avance de los planes de lectura.
 const NOMBRE = 'audiobible';
-const VERSION = 2;
+const VERSION = 3;
 
 let abierta = null;
 
@@ -21,6 +22,8 @@ function abrir() {
         fichas.createIndex('vozTexto', 'vozTexto');
         fichas.createIndex('libro', 'libro');                         // "version/LIBRO"
       }
+      if (falta('marcas')) db.createObjectStore('marcas', { keyPath: 'cap' });     // "JHN.3"
+      if (falta('planes')) db.createObjectStore('planes', { keyPath: 'id' });
     };
     peticion.onsuccess = () => {
       const db = peticion.result;

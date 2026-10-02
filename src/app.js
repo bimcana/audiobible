@@ -20,6 +20,7 @@ import { prepararHoja, hojaAbierta, el } from './ui/hoja.js';
 import { abrirNavegador } from './ui/navegador.js';
 import { abrirVersiones } from './ui/versiones.js';
 import { abrirImportador, abrirGestion } from './ui/importar.js';
+import { crearEstudio } from './estudio.js';
 import {
   abrirVoces, abrirVelocidad, abrirTemporizador, abrirTexto, abrirAjustes, etiquetaVelocidad, COLOR_DE_TEMA,
 } from './ui/paneles.js';
@@ -84,6 +85,39 @@ async function modeloDe(version, libro, cap) {
   return modelos.get(clave);
 }
 
+/* La versión con la que se compara: sus versículos, por número. */
+const paralelos = new Map();        // "kjv/JHN/3" → {idioma, versos: Map}
+
+const versionParalela = () => {
+  const id = estado.ajustes.comparar;
+  return id && id !== estado.version?.id ? estado.catalogo.find((v) => v.id === id) ?? null : null;
+};
+
+async function cargarParalelo(libro, cap) {
+  const v = versionParalela();
+  if (!v) return null;
+  const clave = `${v.id}/${libro}/${cap}`;
+  if (!paralelos.has(clave)) {
+    const versos = new Map();
+    try {
+      const datos = await cargarLibro(v.id, libro);
+      for (const e of datos.caps[cap - 1] ?? []) {
+        if (e.t !== 'v') continue;
+        const texto = e.x.map((t2) => (typeof t2 === 'string' ? t2 : t2.j ?? t2.d ?? ' ')).join('').replace(/\s+/g, ' ').trim();
+        versos.set(e.n, { texto, f: e.f });
+      }
+    } catch { /* esa versión no tiene el libro: se compara con nada */ }
+    paralelos.set(clave, { idioma: v.idioma, versos });
+    if (paralelos.size > 6) paralelos.delete(paralelos.keys().next().value);
+  }
+  return paralelos.get(clave);
+}
+
+const paraleloListo = (libro, cap) => {
+  const v = versionParalela();
+  return v ? paralelos.get(`${v.id}/${libro}/${cap}`) ?? null : null;
+};
+
 function vecino(libro, cap, paso) {
   const l = datosLibro(libro);
   const c = cap + paso;
@@ -124,6 +158,10 @@ function rotular() {
   $('btnTemporizador').title = t('temporizador');
   $('btnTemporizador').setAttribute('aria-pressed', String(estado.temporizador !== null));
   $('btnAjustes').setAttribute('aria-label', t('ajustes'));
+  $('btnBuscar').setAttribute('aria-label', t('bus.titulo'));
+  $('btnBuscar').title = t('bus.titulo');
+  $('btnNotas').setAttribute('aria-label', t('notas.titulo'));
+  $('btnNotas').title = t('notas.titulo');
   $('btnTexto').setAttribute('aria-label', t('texto'));
   $('btnVoz').setAttribute('aria-label', `${t('voz')}: ${nombreDeVoz()}`);
   $('btnVelocidad').setAttribute('aria-label', `${t('velocidad')}: ${etiquetaVelocidad(estado.ajustes.velocidad)}`);
@@ -131,7 +169,7 @@ function rotular() {
   $('btnVelocidad').textContent = etiquetaVelocidad(estado.ajustes.velocidad);
   if (estado.version) {
     $('refTexto').textContent = tituloCapitulo(estado.libro, estado.cap, estado.ajustes.idioma);
-    $('btnVersion').textContent = estado.version.sigla;
+    $('btnVersion').textContent = versionParalela() ? `${estado.version.sigla} · ${versionParalela().sigla}` : estado.version.sigla;
     $('btnVersion').setAttribute('aria-label', `${t('ver.titulo')}: ${estado.version.nombre}`);
     document.title = `${tituloCapitulo(estado.libro, estado.cap, estado.ajustes.idioma)} · ${estado.version.sigla} · AudioBible`;
   }
@@ -175,8 +213,12 @@ function pintar() {
     pasajes: estado.pasajes,
     pie: pieDeCapitulo(),
     accion: botonDescarga,
+    paralelo: paraleloListo(estado.libro, estado.cap),
   });
+  raiz.classList.toggle('comparando', Boolean(paraleloListo(estado.libro, estado.cap)));
   pintarDescarga();
+  estudio.limpiar();
+  estudio.refrescar();
   $('capitulo').lang = idiomaTexto();
   activarPasaje(estado.vista, estado.pasaje);
   pintarAvance();
@@ -220,6 +262,7 @@ async function irA(libro, cap, {
   let pasajes;
   try {
     pasajes = await modeloDe(version.id, libro, cap);
+    await cargarParalelo(libro, cap);
   } catch (err) {
     if (mia !== peticion) return;
     estado.cargando = false;
@@ -268,6 +311,7 @@ async function siguienteUnidad(u) {
   const sig = vecino(u.libro, u.cap, 1);
   if (!sig) return null;
   const pasajes = await modeloDe(estado.version.id, sig.libro, sig.cap);
+  await cargarParalelo(sig.libro, sig.cap);
   // El capítulo solo se anuncia aquí: al pasar de uno al siguiente.
   return { tipo: 'anuncio', breve: true, libro: sig.libro, cap: sig.cap, conLibro: sig.libro !== u.libro, pasajes };
 }
@@ -627,6 +671,18 @@ async function cambiarVersion(id) {
   await irA(estado.libro, estado.cap, { version: nueva, vers: estado.pasaje > 0 ? vers : null, leer: leia });
 }
 
+/* ---------- estudio ---------- */
+
+const estudio = crearEstudio({ estado, irA: (libro, cap, o) => irA(libro, cap, o), aviso, cargarLibro });
+
+async function cambiarComparacion(id) {
+  cambiarAjustes({ comparar: id });
+  paralelos.clear();
+  await cargarParalelo(estado.libro, estado.cap);
+  pintar();
+  rotular();
+}
+
 /* ---------- versiones propias ---------- */
 
 function verVersiones() {
@@ -634,6 +690,8 @@ function verVersiones() {
   abrirVersiones({
     catalogo: estado.catalogo, idioma, actual: estado.version.id, libro: estado.libro, cap: estado.cap,
     alElegir: cambiarVersion,
+    comparar: estado.ajustes.comparar ?? null,
+    alComparar: cambiarComparacion,
     alImportar: () => abrirImportador({ idioma, alTerminar: alGuardarPropia, volver: verVersiones }),
     alGestionar: (version) => abrirGestion({ version, idioma, alCambiar: alGuardarPropia, alQuitar: alQuitarPropia, volver: verVersiones }),
   });
@@ -676,6 +734,9 @@ function conectar() {
   }));
 
   $('btnVersion').addEventListener('click', verVersiones);
+  $('btnBuscar').addEventListener('click', estudio.abrirBusqueda);
+  $('btnNotas').addEventListener('click', estudio.abrirNotas);
+  estudio.conectar($('capitulo'));
 
   $('btnVoz').addEventListener('click', () => abrirVoces({
     voces: estado.voces, idioma: idiomaTexto(), actual: vozActual(), alProbar: probarVoz,
@@ -717,6 +778,7 @@ function conectar() {
 
   // Un toque en cualquier palabra lleva la lectura al comienzo de su oración.
   $('capitulo').addEventListener('click', (e) => {
+    if (estudio.alTocar(e)) return;
     const w = e.target.closest('.w');
     if (!w || getSelection()?.toString()) return;
     const i = Number(w.closest('.pasaje').dataset.i);

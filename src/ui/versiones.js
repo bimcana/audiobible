@@ -1,7 +1,7 @@
 // Hoja «Versión»: las incluidas, por idioma, y enlaces de salida a bible.com
 // para las que tienen derechos de autor.
 import { t } from '../i18n/textos.js';
-import { abrirHoja, cerrarHoja, el } from './hoja.js';
+import { abrirHoja, cerrarHoja, el, pastillas } from './hoja.js';
 
 // Identificadores de bible.com, comprobados uno a uno.
 const FUERA = [
@@ -19,7 +19,39 @@ const FLECHA = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="tru
 
 const AJUSTE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>';
 
-export function abrirVersiones({ catalogo, idioma, actual, libro, cap, alElegir, alImportar, alGestionar }) {
+// modo 'leer': elegir la versión que se lee. modo 'comparar': la que se muestra al lado.
+export function abrirVersiones(opciones) {
+  const { catalogo, idioma, comparar = null, alComparar } = opciones;
+  let modo = 'leer';
+
+  function pintar() {
+    const cuerpo = modo === 'leer' ? cuerpoLeer(opciones) : cuerpoComparar();
+    cuerpo.prepend(pastillas([['leer', t('ver.leer')], ['comparar', t('ver.comparar')]], modo, (m) => { modo = m; pintar(); }), el('div', { class: 'aire' }));
+    abrirHoja({ titulo: t('ver.titulo'), contenido: cuerpo });
+    cuerpo.querySelector('[aria-current="true"]')?.focus();
+  }
+
+  function cuerpoComparar() {
+    const cuerpo = el('div');
+    const fila = (id, sigla, nombre, nota) => el('button', {
+      type: 'button', class: 'opcion', 'aria-current': id === comparar ? 'true' : null,
+      onclick: () => { cerrarHoja(); alComparar(id); },
+    }, el('span', { class: 'sigla', text: sigla }), el('span', {}, el('strong', { text: nombre }), nota ? el('small', { text: nota }) : null));
+
+    cuerpo.append(el('p', { class: 'nota', text: t('ver.compararNota') }), el('div', { class: 'aire' }));
+    const lista = el('div', { class: 'lista' }, fila(null, '—', t('ver.sinComparar')));
+    for (const v of catalogo) {
+      if (v.id === opciones.actual) continue;
+      lista.append(fila(v.id, v.sigla, v.nombre, v.propia ? t('ver.enDispositivo') : v.descripcion[idioma] ?? v.descripcion.es));
+    }
+    cuerpo.append(lista);
+    return cuerpo;
+  }
+
+  pintar();
+}
+
+function cuerpoLeer({ catalogo, idioma, actual, libro, cap, alElegir, alImportar, alGestionar }) {
   const cuerpo = el('div');
 
   // Las que el lector añadió, primero: son las que fue a buscar.
@@ -74,7 +106,5 @@ export function abrirVersiones({ catalogo, idioma, actual, libro, cap, alElegir,
     enlaces.append(a);
   }
   cuerpo.append(enlaces);
-
-  abrirHoja({ titulo: t('ver.titulo'), contenido: cuerpo });
-  cuerpo.querySelector('[aria-current="true"]')?.focus();
+  return cuerpo;
 }
