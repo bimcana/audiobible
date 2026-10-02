@@ -91,13 +91,25 @@ Un archivo por libro y versión. Cada capítulo es una lista ordenada de
 elementos:
 
 - `{"t":"h","x":"Jesús y Nicodemo"}` — título de sección.
+- `{"t":"s","x":"Salmo de David."}` — sobrescrito de salmo.
 - `{"t":"p"}` — salto de párrafo.
-- `{"t":"v","n":16,"x":[...]}` — versículo; `x` es una lista de tramos, cada
-  uno una cadena o `{"j":"..."}` para palabras de Jesús.
+- `{"t":"v","n":16,"x":[...]}` — versículo; `x` es una lista de tramos:
+  una cadena (texto), `{"j":"..."}` (palabras de Jesús), `{"d":"..."}`
+  (acotación) o `{"l":n}` (línea nueva con sangría `n`, para la poesía).
 
-El texto no se altera respecto a la fuente. Las notas al pie se descartan. Las
-marcas tipográficas que no son texto (el «¶» de la KJV) se convierten en saltos
-de párrafo.
+Los espacios entre tramos van dentro del texto: concatenar los tramos de una
+línea da la línea exacta. El texto no se altera respecto a la fuente. Las notas
+al pie se descartan. El «¶» de la KJV se convierte en salto de párrafo.
+
+Reglas nacidas de los datos reales:
+
+- **Palabras de Jesús solo en el Nuevo Testamento.** La fuente de «Palabra de
+  Dios para ti» usa la misma marca para lo que dice Dios en el Antiguo
+  Testamento (6 214 tramos); fuera del NT la marca se ignora en todas las
+  versiones.
+- **Versículos vacíos se omiten.** Algunas versiones numeran distinto y dejan
+  versículos sin texto (18 en la RV1909, 16 en VBL y ASV, 5 en WEB).
+- **Los números de versículo pueden tener huecos** (la NBV une versículos).
 
 ### Preparación de datos
 
@@ -250,6 +262,11 @@ aviso de los que faltan); número de capítulos de cada libro igual al canónico
 versículos en orden creciente dentro de cada capítulo, admitiendo huecos (la
 NVI omite algunos versículos); ningún versículo vacío; ningún `[n]` ni `*`
 residual en el texto.
+
+**Archivo de traspaso.** Una versión importada se puede guardar como un solo
+archivo (`.audiobible`, JSON comprimido con los 66 libros) e instalarse en otro
+dispositivo del usuario abriéndolo desde «Añadir una Biblia propia», sin volver
+a procesar los PDF. La app no aloja ni comparte ese archivo.
 
 **Privacidad y repositorio.** `NVI/` está en `.gitignore`. El texto importado
 solo sale del dispositivo, pasaje a pasaje, hacia el motor de voz, igual que
