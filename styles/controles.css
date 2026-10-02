@@ -659,7 +659,15 @@ mark { background: var(--m-amarillo); color: inherit; border-radius: 3px; paddin
 .pastillas.recientes button { font-family: var(--serif); font-size: .98rem; color: var(--tinta); }
 
 /* --- fondo con IA --- */
-.caja-ia:empty { display: none; }
-.caja-ia { margin-top: 1.2rem; padding: 0 1rem 1rem; border: 1px solid var(--linea); border-radius: 12px; }
-.caja-ia h3 { margin-top: 1rem; }
-.caja-ia .nota { margin-top: .6rem; }
+
+/* --- leyendo, todos los controles se retiran ---
+   A los tres segundos sin tocar la pantalla desaparecen la barra superior, el
+   muelle y las pestañas, y queda solo el texto. Un toque o un desplazamiento
+   los trae de vuelta. La barra superior conserva su hueco para que el texto no
+   dé un salto al volver. */
+.leyendo.recogido #muelle { display: none; }
+.leyendo.recogido #pestanas { display: none; }
+.leyendo.recogido #delDia { display: none; }
+@media (min-width: 900px) { .leyendo.recogido #pestanas { display: grid; opacity: 0; pointer-events: none; } }
+
+.taller-acciones .doble { grid-column: 1 / -1; }

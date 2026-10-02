@@ -23,7 +23,6 @@ import { abrirImportador, abrirGestion } from './ui/importar.js';
 import { crearEstudio } from './estudio.js';
 import { desbloquear } from './importar/privada.js';
 import { crearCompartir } from './ui/compartir.js';
-import { listarModelos, generarFondo, instruccion, PROPORCION } from './ia/google.js';
 import { versiculoDelDia } from './datos/versiculo-del-dia.js';
 import { anotar } from './almacen/historial.js';
 import { cuerpoPlanes } from './ui/planes.js';
@@ -689,8 +688,10 @@ function programarRecogida() {
   clearTimeout(relojRecogida);
   raiz.classList.remove('recogido');
   relojRecogida = setTimeout(() => {
-    if ((estado.sonando || estado.dispositivo) && !hojaAbierta()) raiz.classList.add('recogido');
-  }, 3500);
+    // Con una hoja abierta o una selección de versículos en curso, los controles se quedan.
+    const ocupado = hojaAbierta() || vistaActual !== 'biblia' || raiz.classList.contains('seleccionando');
+    if ((estado.sonando || estado.dispositivo) && !ocupado) raiz.classList.add('recogido');
+  }, 3000);
 }
 
 /* ---------- voces ---------- */
@@ -764,25 +765,14 @@ function irAVista(vista) {
   if (vista === 'buscar') estudio.montarBusqueda($('buscarCuerpo'));
   // Sin nada elegido, Compartir empieza con el versículo del día.
   if (vista === 'compartir' && taller.vacio) compartirDelDia();
-  else if (vista === 'compartir') tallerDe().refrescar();
 }
 
 /* ---------- compartir y versículo del día ---------- */
 
-// La IA de imágenes solo existe si el lector puso su clave de Google y eligió modelo.
-function servicioDeIA() {
-  const { iaClave: clave, iaModelo: modelo } = estado.ajustes;
-  if (!clave || !modelo) return null;
-  return {
-    modelo: modelo.nombre,
-    generar: (datos) => generarFondo({ clave, modelo, prompt: instruccion(datos), proporcion: PROPORCION[datos.formato] }),
-  };
-}
-
 // Se crea al primer uso, cuando el idioma de la interfaz ya está fijado.
 let tallerCreado = null;
 function tallerDe() {
-  tallerCreado ??= crearCompartir({ contenedor: $('compartirCuerpo'), aviso, ia: servicioDeIA });
+  tallerCreado ??= crearCompartir({ contenedor: $('compartirCuerpo'), aviso });
   return tallerCreado;
 }
 const taller = { get vacio() { return tallerDe().vacio; }, abrir: (datos) => tallerDe().abrir(datos) };
@@ -946,7 +936,6 @@ function conectar() {
       cambiarAjustes(parche);
       if (estado.ajustes.idioma !== idiomaAntes) $('btnAjustes').click();     // la hoja, en el idioma nuevo
     },
-    ia: { listar: listarModelos },
     privada: { desbloquear, alDesbloquear: (ficha) => { cerrarHoja(); alGuardarPropia(ficha); } },
     alVerLicencias: () => abrirLicencias({ catalogo: estado.catalogo, volver: () => $('btnAjustes').click() }),
     almacen: {
@@ -962,8 +951,13 @@ function conectar() {
     },
   }));
 
+  // Con los controles ocultos, el primer toque solo los trae de vuelta: no mueve la lectura.
+  let tocoOculto = false;
+  document.addEventListener('pointerdown', () => { tocoOculto = raiz.classList.contains('recogido'); }, { capture: true, passive: true });
+
   // Un toque en cualquier palabra lleva la lectura al comienzo de su oración.
   $('capitulo').addEventListener('click', (e) => {
+    if (tocoOculto) { tocoOculto = false; return; }
     if (estudio.alTocar(e)) return;
     const w = e.target.closest('.w');
     if (!w || getSelection()?.toString()) return;
@@ -978,7 +972,7 @@ function conectar() {
   for (const tipo of ['wheel', 'touchmove']) {
     escena.addEventListener(tipo, () => { estado.desplazadoEn = Date.now(); }, { passive: true });
   }
-  for (const tipo of ['pointermove', 'pointerdown', 'keydown']) {
+  for (const tipo of ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchmove']) {
     document.addEventListener(tipo, () => { if (estado.sonando || estado.dispositivo) programarRecogida(); }, { passive: true });
   }
 

@@ -71,7 +71,7 @@ OPCIONES = {
     # Biblia cerrada gris oscuro con el título en blanco y cinta roja: la elegida.
     'f': ('Santa Biblia', f'''
   <rect width="512" height="512" fill="#FFFFFF"/>
-  <path d="M236 396v62l17-14 17 14v-62z" fill="#E8392E"/>
+  <path d="M236 396v52l17-13 17 13v-52z" fill="#E8392E"/>
   <path d="M150 96h214q14 0 20 12l-8 14H150z" fill="#1F1F1F"/>
   <path d="M158 104h210q8 0 12 8l-6 10H158z" fill="#F4F4F2"/>
   <rect x="128" y="112" width="262" height="290" rx="22" fill="#3F3F41"/>
@@ -164,14 +164,15 @@ if __name__ == '__main__':
     cuerpo = OPCIONES[elegida][1]
 
     # El dibujo ocupa casi todo el icono: con el tamaño de la hoja de opciones
-    # quedaba mucho blanco alrededor. El libro (con su cinta) va de 128 a 390
-    # en horizontal y de 96 a 458 en vertical; se amplía alrededor de su centro.
+    # quedaba mucho blanco alrededor. Se centra el LIBRO, no el libro con su
+    # cinta: va de 128 a 390 en horizontal y de 96 a 402 en vertical, así que el
+    # blanco es el mismo arriba y abajo. La cinta cuelga dentro del margen.
     def ajustado(k):
         fondo, _, dibujo = cuerpo.strip().partition('\n')
-        cx, cy = 259, 277
+        cx, cy = 259, 249
         return f'{fondo}\n<g transform="translate(256 256) scale({k}) translate({-cx} {-cy})">{dibujo}</g>'
 
-    lleno = ajustado(1.3)          # iPhone, favicon: se usa el cuadrado entero
+    lleno = ajustado(1.25)         # iPhone, favicon: se usa el cuadrado entero
     seguro = ajustado(1.0)         # Android puede recortar en círculo: deja margen
     with open('icon.svg', 'w', encoding='utf-8', newline='\n') as f:
         f.write(svg(lleno))

@@ -25,8 +25,6 @@ export function ajustesIniciales() {
     vozEs: 'es-MX-JorgeNeural',
     vozEn: 'en-US-AndrewMultilingualNeural',
     motor: 'https://lyrio-voz.onrender.com',
-    iaClave: '',                          // clave de Google AI del lector; vacía = sin IA
-    iaModelo: null,                       // el modelo elegido: {id, nombre, metodos}
   };
 }
 

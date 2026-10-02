@@ -512,7 +512,7 @@ en español se muestra solo la concordancia y se dice por qué.
 
 ---
 
-## 16. Fondos con IA, opcionales (2026-10-02)
+## 16. Fondos con IA — RETIRADO (ver sección 18)
 
 Se activa en Ajustes → **Imágenes con IA** poniendo una clave de Google AI
 propia. Sin clave, la app no cambia en nada. Todo está en `src/ia/google.js`.
@@ -580,3 +580,24 @@ la cabecera `x-goog-api-key`. El uso se factura a la cuenta del lector.
 Al cambiar el idioma de la app, `alCambiarDeIdioma()` rehace todo lo que tiene
 rótulos: la hoja de Ajustes se reabre en el idioma nuevo y las pestañas
 Buscar y Compartir se vuelven a montar. El temario sigue al idioma de la app.
+
+## 18. Sin IA; foto propia, copiar versículo y controles que se ocultan (2026-10-02)
+
+- **La IA se quitó entera** (sección 16 ya no vale): el plan gratuito de Google
+  no da imágenes por API. Fuera `src/ia/`, su prueba, la sección de Ajustes,
+  los ajustes `iaClave`/`iaModelo` y los textos `ia.*`.
+- **Compartir** gana dos botones: «Copiar el versículo» (texto entre comillas,
+  referencia y sigla al portapapeles) y «Elegir de mis fotos» (un
+  `<input type=file accept="image/*">` oculto; la foto se lee con
+  `URL.createObjectURL`, no sale del dispositivo y queda la primera en la tira
+  de fondos como `{tipo:'propia'}`).
+- **Leyendo, todos los controles se retiran** a los 3 s: barra superior, muelle,
+  pestañas y versículo del día (`.leyendo.recogido`, `programarRecogida` en
+  `src/app.js`). Vuelven con un toque, la rueda o un arrastre, y se van otra
+  vez 3 s después. Con los controles ocultos el primer toque solo los trae de
+  vuelta, no mueve la lectura (`tocoOculto`). No se ocultan con una hoja
+  abierta, en otra pestaña ni mientras hay versículos seleccionados.
+- **Icono**: se centra el libro, no el libro con su cinta (`ajustado` en
+  `herramientas/iconos.py`, centro 259,249): el blanco es igual arriba y abajo.
+  La cinta, más corta, cuelga dentro del margen inferior. Los enlaces del icono
+  en `index.html` llevan `?v=4`.
