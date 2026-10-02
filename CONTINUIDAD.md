@@ -466,3 +466,46 @@ vieja.
 **Icono:** Biblia cerrada con el título y cinta roja (opción `f` de
 `herramientas/iconos.py`). El título se dibuja con trazos sacados de la
 tipografía, no como texto, para que se vea igual en cualquier dispositivo.
+
+---
+
+## 15. Versículo del día, Compartir, historial y palabras (2026-10-02)
+
+**Compartir no usa IA ni añade peso a la app.** El autor planteó generar la
+imagen con una API de Google salvo que hubiera otra vía. La hay: la imagen se
+dibuja en un `<canvas>` en el propio dispositivo (`src/ui/compartir.js`) y el
+fondo es una foto que se pide a `picsum.photos` (fotos de Unsplash, de uso
+libre) solo al elegirla. Sin clave, sin coste y sin esperar a un modelo.
+
+- **El banco** (`src/datos/fondos.js`) son 82 fotos elegidas y etiquetadas
+  **mirándolas una a una** en hojas de contacto, no por su nombre. Trece temas:
+  agua, montaña, cielo, camino, campo, árboles, luz, flores, desierto, noche,
+  roca, lluvia y libro.
+- **Se sugieren según lo que dice el versículo:** `temasDe()` busca palabras
+  pista en español e inglés («pastor», «monte», «lámpara»…) y `fotosPara()`
+  ordena el banco. Para un mismo versículo salen siempre las mismas.
+- **El servicio permite usar la foto en un lienzo** (`Access-Control-Allow-Origin: *`).
+  La imagen se carga con `crossOrigin = 'anonymous'`; sin eso, el navegador
+  deja dibujarla pero no exportarla.
+- **Sin conexión** quedan los fondos lisos. Si una foto no carga, se avisa y
+  se pasa a uno liso.
+- Se entra con «Abrir en Compartir» en el menú del versículo, desde el
+  versículo del día, o directamente por la pestaña (que empieza con el del día).
+
+**Versículo del día** (`src/datos/versiculo-del-dia.js`): sale de las citas
+del temario, 315 sin repetir, en un orden que mezcla los temas. El mismo para
+todos cada día, sin conexión ni datos nuevos. Su tarjeta va sobre el capítulo,
+se quita con el aspa y vuelve al día siguiente.
+
+**Historial** (`src/almacen/historial.js`, en `localStorage`): los últimos 30
+capítulos y, de cada libro, el último por el que se pasó. Se ve en «Ir a»:
+una fila de recientes y, en la rejilla de capítulos, el último leído con borde
+de trazos.
+
+**Palabras.** Al mantener el dedo sobre una palabra (o pulsarla con el botón
+derecho), el menú del versículo ofrece esa palabra: su hoja muestra dónde más
+aparece en la versión y, **solo con versiones en inglés**, la definición del
+diccionario de Easton (1897, dominio público; `data/diccionario/en/`,
+generado con `node herramientas/diccionario.mjs`). No se encontró ningún
+diccionario bíblico libre en español en un formato utilizable; con versiones
+en español se muestra solo la concordancia y se dice por qué.

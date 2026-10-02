@@ -38,6 +38,7 @@
     </header>
 
     <main id="escena" tabindex="-1">
+      <aside id="delDia" hidden></aside>
       <article id="capitulo" aria-live="off"></article>
     </main>
 
@@ -89,6 +90,11 @@
     <main class="pagina-cuerpo"><div id="buscarCuerpo" class="pagina-columna"></div></main>
   </div>
 
+  <div id="vistaCompartir" class="vista pagina" hidden>
+    <header class="pagina-cima"><h1 id="compartirTitulo"></h1></header>
+    <main class="pagina-cuerpo"><div id="compartirCuerpo" class="pagina-columna ancha"></div></main>
+  </div>
+
   <nav id="pestanas">
     <button data-vista="biblia" aria-current="page">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 6.5C10 5 7.5 4.5 4 4.5v13c3.5 0 6 .5 8 2 2-1.5 4.500-2 8-2v-13c-3.500 0-6 .5-8 2z"/><path d="M12 6.500v13"/></svg>
@@ -100,6 +106,10 @@
     </button>
     <button data-vista="buscar">
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="6.500"/><path d="m20 20-4.200-4.200"/></svg>
+      <span></span>
+    </button>
+    <button data-vista="compartir">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 3.5 3 3-2.5 4.5 4"/></svg>
       <span></span>
     </button>
   </nav>

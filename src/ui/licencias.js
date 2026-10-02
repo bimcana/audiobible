@@ -6,6 +6,8 @@ import { abrirHoja, el } from './hoja.js';
 const OTROS = [
   ['Referencias cruzadas · Cross-references', 'OpenBible.info · CC BY 4.0', 'https://www.openbible.info/labs/cross-references/'],
   ['Catálogo de textos · Text catalogue', 'eBible.org · Free Use Bible API (helloao.org)', 'https://ebible.org/'],
+  ['Diccionario · Dictionary', 'Easton’s Bible Dictionary (1897), public domain · NEUU dataset, CC BY 4.0', 'https://github.com/neuu-org/bible-dictionary-dataset'],
+  ['Fotos · Photos', 'Unsplash, via Lorem Picsum', 'https://picsum.photos/'],
   ['Voces · Voices', 'Microsoft Edge neural voices', null],
   ['pdf.js', 'Mozilla Foundation · Apache License 2.0', 'https://mozilla.github.io/pdf.js/'],
   ['Gentium Book Plus', 'SIL International · SIL Open Font License 1.1', 'https://software.sil.org/gentium/'],

@@ -625,3 +625,35 @@ mark { background: var(--m-amarillo); color: inherit; border-radius: 3px; paddin
 .pastillas.temas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
 .pastillas.temas button { min-height: 2.9rem; padding: .45rem .8rem; border-radius: 10px; text-align: left; line-height: 1.25; }
 @media (min-width: 720px) { .pastillas.temas { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* --- cuatro pestañas --- */
+#pestanas { grid-template-columns: repeat(4, 1fr); }
+@media (min-width: 900px) { #pestanas { grid-template-columns: none; } }
+
+/* --- compartir --- */
+
+.pagina-columna.ancha { max-width: 60rem; }
+.taller { display: grid; gap: 1.5rem; }
+@media (min-width: 820px) { .taller { grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); align-items: start; } .taller-vista { position: sticky; top: 0; } }
+.lienzo { display: block; width: 100%; max-width: 22rem; height: auto; margin: 0 auto; border-radius: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, .18); transition: opacity .2s; }
+.lienzo.cargando { opacity: .55; }
+.comp-ref { margin: .7rem 0 0; text-align: center; font-size: .8rem; letter-spacing: .06em; color: var(--tinta-2); }
+.taller-acciones { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; max-width: 22rem; margin: .8rem auto 0; }
+.boton.secundario { background: none; color: var(--tinta); border: 1px solid var(--linea); }
+.taller-controles h3:first-child { margin-top: 0; }
+
+.fondos { display: flex; flex-wrap: wrap; gap: .4rem; }
+.fondos button { width: 3.75rem; height: 4.7rem; border-radius: 8px; overflow: hidden; border: 2px solid transparent; outline-offset: 1px; }
+.fondos button img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.fondos button.liso { border-color: var(--linea); }
+.fondos button[aria-pressed='true'] { border-color: var(--rubrica); box-shadow: 0 0 0 2px var(--rubrica); }
+.fondos button.mas { width: auto; padding: 0 .9rem; border: 1px solid var(--linea); font-size: .82rem; color: var(--tinta-2); }
+
+/* --- palabra y recientes --- */
+
+.menu-palabra { display: flex; align-items: baseline; gap: .5rem; min-height: 2.5rem; padding: .2rem .5rem; margin-top: .1rem; border-top: 1px solid var(--linea); text-align: left; }
+.menu-palabra span { font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--tinta-2); }
+.menu-palabra strong { font-family: var(--serif); font-size: 1.05rem; color: var(--rubrica); }
+.definicion { margin: 0 0 .7rem; font-family: var(--serif); font-size: 1rem; line-height: 1.55; }
+.rejilla.numeros button.ultimo { border-style: dashed; border-color: var(--tinta-2); }
+.pastillas.recientes button { font-family: var(--serif); font-size: .98rem; color: var(--tinta); }

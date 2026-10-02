@@ -1,6 +1,7 @@
 // Hoja «Ir a»: campo que entiende referencias escritas, libros por grupo y
 // rejilla de capítulos.
-import { GRUPOS, nombreLibro } from '../referencia/nombres.js';
+import { GRUPOS, nombreLibro, tituloCapitulo } from '../referencia/nombres.js';
+import { recientes, ultimoCapitulo } from '../almacen/historial.js';
 import { libro as datosLibro } from '../referencia/canon.js';
 import { analizarReferencia } from '../referencia/analizar.js';
 import { t } from '../i18n/textos.js';
@@ -31,6 +32,13 @@ export function abrirNavegador({ idioma, actual, alIr, guardados = null }) {
 
   function verLibros() {
     const cuerpo = el('div', {}, campoDeReferencia());
+    // Lo último que se leyó, para volver sin buscarlo.
+    const vistos = recientes().filter((r) => r.libro !== actual.libro || r.cap !== actual.cap).slice(0, 8);
+    if (vistos.length) {
+      const fila = el('div', { class: 'pastillas recientes' });
+      for (const r of vistos) fila.append(el('button', { type: 'button', text: tituloCapitulo(r.libro, r.cap, idioma), onclick: () => ir(r.libro, r.cap) }));
+      cuerpo.append(el('h3', { text: t('nav.recientes') }), fila);
+    }
     let testamento = null;
     for (const grupo of GRUPOS) {
       if (grupo.t !== testamento) {
@@ -57,6 +65,8 @@ export function abrirNavegador({ idioma, actual, alIr, guardados = null }) {
       rejilla.append(el('button', {
         type: 'button', text: String(cap),
         'aria-current': id === actual.libro && cap === actual.cap ? 'true' : null,
+        class: id !== actual.libro && cap === ultimoCapitulo(id) ? 'ultimo' : null,
+        title: id !== actual.libro && cap === ultimoCapitulo(id) ? t('nav.ultimo') : null,
         onclick: () => ir(id, cap),
       }));
     }
@@ -64,7 +74,7 @@ export function abrirNavegador({ idioma, actual, alIr, guardados = null }) {
       titulo: nombreLibro(id, idioma), ancha: true, volver: verLibros,
       contenido: el('div', {}, campoDeReferencia(), el('h3', { text: t('nav.capitulos', { libro: nombreLibro(id, idioma) }) }), rejilla),
     });
-    (rejilla.querySelector('[aria-current="true"]') ?? rejilla.firstElementChild).focus();
+    (rejilla.querySelector('[aria-current="true"]') ?? rejilla.querySelector('.ultimo') ?? rejilla.firstElementChild).focus();
     guardados?.(id).then((caps) => {
       for (const boton of rejilla.children) {
         if (!caps.has(Number(boton.textContent))) continue;
@@ -74,7 +84,8 @@ export function abrirNavegador({ idioma, actual, alIr, guardados = null }) {
     }).catch(() => {});
   }
 
-  // Con varios capítulos, lo habitual es moverse dentro del libro abierto.
-  if (datosLibro(actual.libro).caps > 1) verCapitulos(actual.libro);
+  // Con historial, se empieza por los libros, donde están los recientes; sin
+  // él, lo habitual es moverse dentro del libro abierto.
+  if (datosLibro(actual.libro).caps > 1 && recientes().length < 2) verCapitulos(actual.libro);
   else verLibros();
 }

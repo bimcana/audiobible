@@ -245,3 +245,19 @@ p.capitular.suelta {
 
 /* El versículo al que se acaba de llegar desde una búsqueda, un tema o una referencia. */
 .w.destello { background: color-mix(in srgb, var(--rubrica) 16%, transparent); box-shadow: -.14em 0 0 color-mix(in srgb, var(--rubrica) 16%, transparent), .14em 0 0 color-mix(in srgb, var(--rubrica) 16%, transparent); }
+
+/* --- versículo del día --- */
+
+#delDia {
+  max-width: var(--medida);
+  margin: 1.25rem auto 0;
+  padding: .9rem 1.1rem 1.1rem;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+.dia-cabeza { display: flex; align-items: center; justify-content: space-between; margin: -.3rem -.5rem 0 0; }
+.dia-cabeza .cap-libro { margin: 0; font-size: .68rem; color: var(--rubrica); }
+.dia-texto { margin: .2rem 0 .5rem; font-family: var(--lectura); font-size: 1.22rem; line-height: 1.5; text-wrap: pretty; }
+.dia-ref { margin: 0 0 .8rem; font-size: .8rem; letter-spacing: .06em; color: var(--tinta-2); }
+.leyendo #delDia { display: none; }

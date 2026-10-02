@@ -37,6 +37,7 @@ function rangoDe(versos) {
 export function crearEstudio(ctx) {
   const { estado } = ctx;
   const seleccion = new Set();
+  let palabra = null;                 // la palabra sobre la que se mantuvo el dedo
   let marcas = {};
   const idioma = () => estado.ajustes.idioma;
 
@@ -74,6 +75,7 @@ export function crearEstudio(ctx) {
 
   function limpiar() {
     if (!seleccion.size) return;
+    palabra = null;
     seleccion.clear();
     pintarSeleccion(estado.vista, seleccion);
     barra.hidden = true;
@@ -97,6 +99,8 @@ export function crearEstudio(ctx) {
     referencias: '<path d="M9 7H6a3 3 0 0 0 0 6h3M15 7h3a3 3 0 0 1 0 6h-3M8 10h8"/><path d="M12 14v6M9 17l3 3 3-3"/>',
     versiones: '<rect x="3.5" y="5" width="7" height="14" rx="1.5"/><rect x="13.5" y="5" width="7" height="14" rx="1.5"/>',
     cerrar: '<path d="M18 6 6 18M6 6l12 12"/>',
+    imagen: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 3.5 3 3-2.5 4.5 4"/>',
+    palabra: '<path d="M5 5h9a4 4 0 0 1 4 4v10H9a4 4 0 0 1-4-4z"/><path d="M9 10h5M9 14h3"/>',
   };
   const boton = (icono, clave, hacer, pulsado = null) => {
     const b = el('button', { type: 'button', class: 'icono', 'aria-label': t(clave), title: t(clave), onclick: hacer });
@@ -127,7 +131,10 @@ export function crearEstudio(ctx) {
         boton('copiar', 'est.copiar', copiar),
         navigator.share ? boton('compartir', 'est.compartir', compartir) : null,
         boton('referencias', 'est.referencias', abrirReferencias),
-        boton('versiones', 'est.enVersiones', abrirEnVersiones)));
+        boton('versiones', 'est.enVersiones', abrirEnVersiones),
+        boton('imagen', 'est.abrirCompartir', abrirEnCompartir)),
+      ...(palabra ? [el('button', { type: 'button', class: 'menu-palabra', onclick: () => abrirPalabra(palabra) },
+        el('span', { text: t('est.palabra') }), el('strong', { text: palabra }))] : []));
     barra.hidden = false;
   }
 
@@ -140,6 +147,11 @@ export function crearEstudio(ctx) {
     }
     pintarMarcas(estado.vista, marcas);
     pintarBarra();
+  }
+
+  function abrirEnCompartir() {
+    ctx.compartir({ texto: textoDe(seleccion), referencia: referencia(estado.libro, estado.cap, seleccion), sigla: estado.version.sigla });
+    limpiar();
   }
 
   const cita = () => `«${textoDe(seleccion)}»\n— ${referencia(estado.libro, estado.cap, seleccion)} (${estado.version.sigla})`;
@@ -453,6 +465,71 @@ export function crearEstudio(ctx) {
         entrada);
   }
 
+  /* ---------- una palabra: definición y concordancia ---------- */
+
+  const diccionario = new Map();          // letra → Promise<{clave: {n, x}}>
+  function letraDe(letra) {
+    if (!diccionario.has(letra)) {
+      const p = fetch(new URL(`../data/diccionario/en/${letra}.json`, import.meta.url)).then((r) => (r.ok ? r.json() : {}));
+      p.catch(() => diccionario.delete(letra));
+      diccionario.set(letra, p);
+    }
+    return diccionario.get(letra);
+  }
+
+  // El diccionario está en inglés: se prueba la palabra y sus formas simples.
+  async function definir(palabraInglesa) {
+    const base = palabraInglesa.toLowerCase().replace(/[^a-z]/g, '');
+    if (!base) return null;
+    const formas = [base, base.replace(/'?s$/, ''), base.replace(/es$/, ''), base.replace(/ies$/, 'y'), base.replace(/eth$/, ''), base.replace(/ed$/, '')];
+    for (const forma of new Set(formas)) {
+      if (!forma) continue;
+      const entrada = (await letraDe(forma[0]))[forma];
+      if (entrada) return entrada;
+    }
+    return null;
+  }
+
+  async function abrirPalabra(p) {
+    const version = estado.version;
+    const cuerpo = el('div', {});
+    const definicion = el('div', {});
+    const apariciones = el('div', { class: 'resultados' }, el('p', { class: 'nota', text: t('bus.preparando', { version: version.sigla }) }));
+    cuerpo.append(definicion, el('h3', { text: t('pal.apariciones', { version: version.sigla }) }), apariciones);
+    abrirHoja({ titulo: p, contenido: cuerpo, ancha: true });
+    limpiar();
+
+    if (version.idioma === 'en') {
+      definir(p).then((entrada) => {
+        if (!entrada) return;
+        definicion.append(el('h3', { text: t('pal.definicion') }));
+        for (const parrafo of entrada.x.split('\n\n')) definicion.append(el('p', { class: 'definicion', lang: 'en', text: parrafo }));
+        definicion.append(el('p', { class: 'nota', text: t('pal.fuente') }));
+      }).catch(() => {});
+    } else {
+      definicion.append(el('p', { class: 'nota', text: t('pal.sinDiccionario') }));
+    }
+
+    let datos;
+    try { datos = await indiceDe(version.id); } catch { apariciones.replaceChildren(el('p', { class: 'nota', text: t('aviso.cargaLibro') })); return; }
+    const r = buscar(datos, p, { limite: 150 });
+    apariciones.replaceChildren(el('p', { class: 'nota', text: r.total > 150 ? t('bus.muchos', { total: r.total.toLocaleString(idioma()), n: 150 }) : t(r.total === 1 ? 'bus.uno' : 'bus.varios', { total: r.total }) }));
+    let libroActual = null;
+    let grupo = null;
+    for (const v of r.resultados) {
+      if (v.libro !== libroActual) {
+        libroActual = v.libro;
+        apariciones.append(el('h4', { text: nombreLibro(v.libro, idioma()) }));
+        grupo = el('div', { class: 'lista' });
+        apariciones.append(grupo);
+      }
+      const texto = el('small', {});
+      for (const trozo of resaltar(v.texto, r.terminos)) texto.append(trozo.hallado ? el('mark', { text: trozo.texto }) : trozo.texto);
+      grupo.append(el('button', { type: 'button', class: 'opcion sola', onclick: () => { cerrarHoja(); ctx.irA(v.libro, v.cap, { vers: v.n }); } },
+        el('span', {}, el('strong', { text: `${v.cap}:${v.n}` }), texto)));
+    }
+  }
+
   /* ---------- gestos sobre el texto ---------- */
 
   const versoDe = (objetivo) => {
@@ -467,7 +544,13 @@ export function crearEstudio(ctx) {
   // Tras una pulsación larga llega un «click» que no debe mover la lectura.
   let ultimaLarga = 0;
   const acabaDeSerLarga = () => Date.now() - ultimaLarga < 700;
-  const seleccionarLargo = (n) => { ultimaLarga = Date.now(); alternar(n); };
+  const seleccionarLargo = (n, objetivo = null) => {
+    ultimaLarga = Date.now();
+    // La palabra pulsada, sin los signos que la rodean.
+    const w = objetivo?.closest('.w');
+    palabra = w ? w.textContent.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '') || null : null;
+    alternar(n);
+  };
 
   // Con el dedo, pulsación larga; con el ratón, botón derecho. En ambos, un
   // toque en el número del versículo.
@@ -479,7 +562,8 @@ export function crearEstudio(ctx) {
       origen = { x: e.clientX, y: e.clientY };
       const n = versoDe(e.target);
       clearTimeout(reloj);
-      reloj = setTimeout(() => { navigator.vibrate?.(12); seleccionarLargo(n); }, PULSACION_LARGA);
+      const objetivo = e.target;
+      reloj = setTimeout(() => { navigator.vibrate?.(12); seleccionarLargo(n, objetivo); }, PULSACION_LARGA);
     });
     capitulo.addEventListener('pointermove', (e) => {
       if (origen && Math.hypot(e.clientX - origen.x, e.clientY - origen.y) > 10) clearTimeout(reloj);
@@ -491,7 +575,7 @@ export function crearEstudio(ctx) {
       const n = versoDe(e.target);
       if (n === null) return;
       e.preventDefault();
-      if (!acabaDeSerLarga()) seleccionarLargo(n);
+      if (!acabaDeSerLarga()) seleccionarLargo(n, e.target);
     });
   }
 
@@ -506,5 +590,5 @@ export function crearEstudio(ctx) {
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && seleccion.size && !$('hoja').open) limpiar(); });
 
-  return { conectar, alTocar, refrescar, limpiar, montarBusqueda, cuerpoNotas };
+  return { conectar, alTocar, refrescar, limpiar, montarBusqueda, cuerpoNotas, referencia, textoDelDestino };
 }

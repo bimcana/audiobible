@@ -22,6 +22,9 @@ import { abrirVersiones } from './ui/versiones.js';
 import { abrirImportador, abrirGestion } from './ui/importar.js';
 import { crearEstudio } from './estudio.js';
 import { desbloquear } from './importar/privada.js';
+import { crearCompartir } from './ui/compartir.js';
+import { versiculoDelDia } from './datos/versiculo-del-dia.js';
+import { anotar } from './almacen/historial.js';
 import { cuerpoPlanes } from './ui/planes.js';
 import { abrirLicencias } from './ui/licencias.js';
 import { PLANES, claveCapitulo } from './planes/planes.js';
@@ -167,7 +170,8 @@ function rotular() {
   $('btnAjustes').setAttribute('aria-label', t('ajustes'));
   $('btnNotas').setAttribute('aria-label', t('notas.titulo'));
   $('btnNotas').title = t('notas.titulo');
-  const rotulos = { biblia: t('tab.biblia'), planes: t('plan.titulo'), buscar: t('bus.titulo') };
+  const rotulos = { biblia: t('tab.biblia'), planes: t('plan.titulo'), buscar: t('bus.titulo'), compartir: t('est.compartir') };
+  $('compartirTitulo').textContent = t('comp.titulo');
   for (const b of $('pestanas').children) b.querySelector('span').textContent = rotulos[b.dataset.vista];
   $('planesTitulo').textContent = t('plan.tituloLargo');
   $('buscarTitulo').textContent = t('bus.titulo');
@@ -250,6 +254,7 @@ function mostrar(libro, cap, pasajes, { pasaje = 0 } = {}) {
   pintar();
   rotular();
   recordarPosicion();
+  anotar(libro, cap);
   history.replaceState(null, '', `#/${estado.version.id}/${libro}/${cap}`);
 }
 
@@ -283,6 +288,7 @@ async function irA(libro, cap, {
   }
   if (mia !== peticion) return;          // llegó tarde: ya se pidió otro capítulo
   estado.cargando = false;
+  const otraVersion = version !== estado.version;
   if (version !== estado.version) {
     estado.version = version;
     cambiarAjustes(version.idioma === 'en' ? { versionEn: version.id } : { versionEs: version.id });
@@ -302,6 +308,7 @@ async function irA(libro, cap, {
   } else {
     escena.scrollTo({ top: 0, behavior: 'instant' });
   }
+  if (otraVersion && estado.catalogo.length) pintarDelDia();
   if (leer) leerDesde(estado.pasaje);
 }
 
@@ -712,7 +719,7 @@ async function cambiarVersion(id) {
 
 /* ---------- estudio ---------- */
 
-const estudio = crearEstudio({ estado, irA: (libro, cap, o) => irDesdeFuera(libro, cap, o), aviso, cargarLibro });
+const estudio = crearEstudio({ estado, irA: (libro, cap, o) => irDesdeFuera(libro, cap, o), aviso, cargarLibro, compartir: (datos) => abrirEnCompartir(datos) });
 
 async function cambiarComparacion(id) {
   cambiarAjustes({ comparar: id });
@@ -728,7 +735,7 @@ let vistaActual = 'biblia';
 
 function irAVista(vista) {
   vistaActual = vista;
-  for (const id of ['biblia', 'planes', 'buscar']) {
+  for (const id of ['biblia', 'planes', 'buscar', 'compartir']) {
     $(`vista${id[0].toUpperCase()}${id.slice(1)}`).hidden = id !== vista;
   }
   for (const b of $('pestanas').children) {
@@ -739,6 +746,83 @@ function irAVista(vista) {
     $('planesCuerpo').replaceChildren(cuerpoPlanes({ idioma: estado.ajustes.idioma, irA: irDesdeFuera, aviso }));
   }
   if (vista === 'buscar') estudio.montarBusqueda($('buscarCuerpo'));
+  // Sin nada elegido, Compartir empieza con el versículo del día.
+  if (vista === 'compartir' && taller.vacio) compartirDelDia();
+}
+
+/* ---------- compartir y versículo del día ---------- */
+
+// Se crea al primer uso, cuando el idioma de la interfaz ya está fijado.
+let tallerCreado = null;
+function tallerDe() {
+  tallerCreado ??= crearCompartir({ contenedor: $('compartirCuerpo'), aviso });
+  return tallerCreado;
+}
+const taller = { get vacio() { return tallerDe().vacio; }, abrir: (datos) => tallerDe().abrir(datos) };
+
+function abrirEnCompartir(datos) {
+  taller.abrir(datos);
+  irAVista('compartir');
+  $('vistaCompartir').querySelector('.pagina-cuerpo').scrollTo({ top: 0 });
+}
+
+const versosDe = (d) => new Set(Array.from({ length: d.hasta - d.vers + 1 }, (_, i) => d.vers + i));
+
+async function datosDelDia() {
+  const d = versiculoDelDia();
+  const texto = await estudio.textoDelDestino(estado.version.id, d);
+  return { d, texto, referencia: estudio.referencia(d.libro, d.cap, versosDe(d)), sigla: estado.version.sigla };
+}
+
+async function compartirDelDia() {
+  try {
+    const { texto, referencia, sigla } = await datosDelDia();
+    if (texto) taller.abrir({ texto, referencia, sigla });
+  } catch { /* sin el libro a mano, Compartir queda vacío hasta elegir un versículo */ }
+}
+
+const CLAVE_DEL_DIA = 'audiobible-del-dia';
+
+// La tarjeta del versículo del día, sobre el capítulo. Se quita con su aspa y vuelve mañana.
+async function pintarDelDia() {
+  const caja = $('delDia');
+  const { clave } = versiculoDelDia();
+  let visto = null;
+  try { visto = localStorage.getItem(CLAVE_DEL_DIA); } catch { /* sin almacenamiento */ }
+  if (visto === clave) { caja.hidden = true; return; }
+  let datos;
+  try { datos = await datosDelDia(); } catch { caja.hidden = true; return; }
+  if (!datos.texto) { caja.hidden = true; return; }
+  const { d, texto, referencia, sigla } = datos;
+  const cerrar = el('button', {
+    type: 'button', class: 'icono', 'aria-label': t('dia.quitar'),
+    onclick: () => { caja.hidden = true; try { localStorage.setItem(CLAVE_DEL_DIA, clave); } catch { /* sin almacenamiento */ } },
+  });
+  cerrar.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+  const cita = el('p', { class: 'dia-texto', text: texto });
+  cita.lang = estado.version.idioma;
+  caja.replaceChildren(
+    el('div', { class: 'dia-cabeza' }, el('p', { class: 'cap-libro', text: t('dia.titulo') }), cerrar),
+    cita,
+    el('p', { class: 'dia-ref', text: `${referencia} · ${sigla}` }),
+    el('div', { class: 'pastillas' },
+      el('button', { type: 'button', text: t('dia.escuchar'), onclick: () => escucharSuelto(texto) }),
+      el('button', { type: 'button', text: t('est.compartir'), onclick: () => abrirEnCompartir({ texto, referencia, sigla }) }),
+      el('button', { type: 'button', text: t('dia.leer'), onclick: () => irA(d.libro, d.cap, { vers: d.vers }) })));
+  caja.hidden = false;
+}
+
+// Lee en voz alta un texto suelto, sin mover la lectura del capítulo.
+async function escucharSuelto(texto) {
+  if (estado.sonando) reproductor.pausar();
+  try {
+    const { motor: velocidad } = reparto();
+    const clip = await motor.clip({ texto: textoParaVoz(texto, { version: estado.version.id }).texto, voz: vozActual(), velocidad });
+    muestra.src = clip.url;
+    await muestra.play();
+  } catch (err) {
+    aviso(t(err instanceof ErrorDeRed ? 'aviso.sinRed' : 'aviso.error', { detalle: err?.message ?? '' }));
+  }
 }
 
 // Abrir un pasaje desde Planes o Buscar: se vuelve a la Biblia.
@@ -953,6 +1037,7 @@ async function arrancar() {
   await irA(destino.libro, destino.cap, { pasaje: mismoSitio ? guardada.pasaje ?? 0 : 0, leer: false });
   // Idioma, versión y apariencia quedan guardados desde el primer uso.
   guardarAjustes(estado.ajustes);
+  pintarDelDia();
   cargarVoces();
   // El service worker deja la app y los textos abiertos disponibles sin conexión.
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
