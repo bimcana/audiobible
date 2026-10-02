@@ -6,7 +6,8 @@ import { analizarReferencia } from '../referencia/analizar.js';
 import { t } from '../i18n/textos.js';
 import { abrirHoja, cerrarHoja, el } from './hoja.js';
 
-export function abrirNavegador({ idioma, actual, alIr }) {
+// guardados(libro) → Promise<Set<número de capítulo>> con el audio ya descargado.
+export function abrirNavegador({ idioma, actual, alIr, guardados = null }) {
   const ir = (libro, cap, vers = null) => { cerrarHoja(); alIr(libro, cap, vers); };
 
   function campoDeReferencia() {
@@ -64,6 +65,13 @@ export function abrirNavegador({ idioma, actual, alIr }) {
       contenido: el('div', {}, campoDeReferencia(), el('h3', { text: t('nav.capitulos', { libro: nombreLibro(id, idioma) }) }), rejilla),
     });
     (rejilla.querySelector('[aria-current="true"]') ?? rejilla.firstElementChild).focus();
+    guardados?.(id).then((caps) => {
+      for (const boton of rejilla.children) {
+        if (!caps.has(Number(boton.textContent))) continue;
+        boton.classList.add('guardado');
+        boton.title = t('desc.marca');
+      }
+    }).catch(() => {});
   }
 
   // Con varios capítulos, lo habitual es moverse dentro del libro abierto.

@@ -426,3 +426,20 @@ input[type='range'] {
 
 .ficha-version .boton { width: 100%; }
 .boton:disabled { opacity: .5; cursor: default; }
+
+/* --- audio guardado --- */
+
+.rejilla.numeros button.guardado { position: relative; }
+.rejilla.numeros button.guardado::after {
+  content: '';
+  position: absolute;
+  right: .3rem;
+  bottom: .3rem;
+  width: .38rem;
+  height: .38rem;
+  border-radius: 50%;
+  background: var(--rubrica);
+}
+.opcion.quieta { cursor: default; }
+.opcion.quieta:hover { background: none; }
+.fila-voz .opcion.peligro, .lista + .opcion.peligro { grid-template-columns: 1fr; margin-top: .5rem; }

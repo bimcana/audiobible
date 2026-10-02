@@ -1,7 +1,7 @@
 // La base de datos del dispositivo (IndexedDB). Aquí vive todo lo que no cabe
-// en localStorage: de momento, las Biblias que el lector importa.
+// en localStorage: las Biblias que el lector importa y el audio guardado.
 const NOMBRE = 'audiobible';
-const VERSION = 1;
+const VERSION = 2;
 
 let abierta = null;
 
@@ -10,10 +10,23 @@ function abrir() {
     const peticion = indexedDB.open(NOMBRE, VERSION);
     peticion.onupgradeneeded = () => {
       const db = peticion.result;
-      if (!db.objectStoreNames.contains('versiones')) db.createObjectStore('versiones', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('libros')) db.createObjectStore('libros');      // clave "version/LIBRO"
+      const falta = (nombre) => !db.objectStoreNames.contains(nombre);
+      if (falta('versiones')) db.createObjectStore('versiones', { keyPath: 'id' });
+      if (falta('libros')) db.createObjectStore('libros');           // clave "version/LIBRO"
+      // El audio va en dos almacenes con la misma clave: el sonido, que pesa,
+      // y su ficha, que es lo único que se lee para saber qué hay guardado.
+      if (falta('audio')) db.createObjectStore('audio');
+      if (falta('audioFichas')) {
+        const fichas = db.createObjectStore('audioFichas', { keyPath: 'clave' });
+        fichas.createIndex('vozTexto', 'vozTexto');
+        fichas.createIndex('libro', 'libro');                         // "version/LIBRO"
+      }
     };
-    peticion.onsuccess = () => resolver(peticion.result);
+    peticion.onsuccess = () => {
+      const db = peticion.result;
+      db.onversionchange = () => { db.close(); abierta = null; };
+      resolver(db);
+    };
     peticion.onerror = () => { abierta = null; rechazar(peticion.error); };
   });
   return abierta;

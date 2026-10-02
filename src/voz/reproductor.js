@@ -2,10 +2,10 @@
 // ellas. No sabe qué es una Biblia ni toca la página: pide el audio de cada
 // unidad, pregunta cuál es la siguiente y avisa de lo que va pasando.
 //
-//   clipDe(unidad)    → Promise<{url, palabras}>
+//   clipDe(unidad)    → Promise<{url, palabras, velocidad}>
 //   claveDe(unidad)   → cadena que cambia si cambia la voz o la velocidad
 //   siguiente(unidad) → Promise<unidad | null>
-//   ritmo()           → velocidad del reproductor (playbackRate)
+//   ritmo(clip)       → velocidad del reproductor (playbackRate) para ese audio
 //   al.unidad(u) · al.palabra(u, i, palabras) · al.estado(e) · al.fin() · al.error(err, u)
 //
 // Dos reproductores se turnan: cambiar el src de un <audio> obliga a cargar y
@@ -15,8 +15,9 @@
 export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
   let actual = crearAudio();
   let relevo = crearAudio();
-  let enRelevo = { unidad: null, clave: '', palabras: null };
+  let enRelevo = { unidad: null, clave: '', clip: null };
 
+  let clip = null;                // el audio que suena
   let unidad = null;
   let palabras = [];
   let iluminada = -1;
@@ -34,11 +35,11 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
     return a;
   }
 
-  const olvidarRelevo = () => { enRelevo = { unidad: null, clave: '', palabras: null }; };
+  const olvidarRelevo = () => { enRelevo = { unidad: null, clave: '', clip: null }; };
 
   function aplicarRitmo(a) {
     a.preservesPitch = true;
-    a.playbackRate = ritmo();
+    if (clip) a.playbackRate = ritmo(clip);
   }
 
   function sincronizar() {
@@ -75,11 +76,11 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
       const sig = await siguiente(desde);
       if (!sig || f !== ficha) return;
       const clave = claveDe(sig);
-      const clip = await clipDe(sig);
+      const siguienteClip = await clipDe(sig);
       if (f !== ficha || claveDe(sig) !== clave) return;
-      relevo.src = clip.url;
+      relevo.src = siguienteClip.url;
       relevo.load();
-      enRelevo = { unidad: sig, clave, palabras: clip.palabras };
+      enRelevo = { unidad: sig, clave, clip: siguienteClip };
       // Una unidad breve (un anuncio) dura un par de segundos: no da tiempo a
       // pedir lo que le sigue mientras suena. Se pide ya, para que esté listo.
       if (sig.breve) {
@@ -99,8 +100,9 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
     al.unidad(u);
     al.estado('cargando');
     try {
-      const clip = await clipDe(u);
+      const nuevo = await clipDe(u);
       if (f !== ficha) return;
+      clip = nuevo;
       palabras = clip.palabras;
       if (actual.src !== clip.url) actual.src = clip.url;
       aplicarRitmo(actual);
@@ -138,7 +140,8 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
     if (listo) {
       [actual, relevo] = [relevo, actual];
       unidad = enRelevo.unidad;
-      palabras = enRelevo.palabras || [];
+      clip = enRelevo.clip;
+      palabras = clip.palabras || [];
       olvidarRelevo();
       iluminada = -1;
       const f = ++ficha;
@@ -203,6 +206,7 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
       cancelAnimationFrame(raf);
       olvidarRelevo();
       unidad = null;
+      clip = null;
       palabras = [];
     },
 
@@ -210,6 +214,9 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
     ajustarRitmo() { aplicarRitmo(actual); },
 
     olvidarRelevo,
+    // Tras olvidar el relevo sin interrumpir la lectura, se prepara otro.
+    rehacerRelevo() { if (sonando && unidad) prepararRelevo(unidad); },
+    get velocidadDelAudio() { return clip?.velocidad ?? null; },
     get sonando() { return sonando; },
     get unidad() { return unidad; },
     // Carácter (del texto en pantalla) por el que va la voz.

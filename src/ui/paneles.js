@@ -137,15 +137,71 @@ export function abrirTexto({ ajustes, cambiar }) {
   abrirHoja({ titulo: t('texto'), contenido: el('div', {}, ...seccionPagina(ajustes, cambiar)) });
 }
 
+// --- audio guardado ---
+
+const PAPELERA = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+
+const tamano = (bytes) => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(bytes >= 104857600 ? 0 : 1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+function tiempo(segundos) {
+  const m = Math.round(segundos / 60);
+  return m >= 60 ? t('alm.horas', { h: Math.floor(m / 60), m: m % 60 }) : t('alm.minutos', { m: Math.max(1, m) });
+}
+
+// uso() → Promise<[{version, libro, bytes, clips, segundos}]>
+// nombre(version, libro) → «Juan · RVG»; borrar({libro}) → Promise
+function seccionAlmacen({ uso, nombre, borrar }) {
+  const caja = el('div', {});
+  async function pintar() {
+    const grupos = (await uso()).sort((a, b) => b.bytes - a.bytes);
+    caja.replaceChildren();
+    if (!grupos.length) { caja.append(el('p', { class: 'nota', text: t('alm.vacio') })); return; }
+
+    const total = grupos.reduce((n, g) => n + g.bytes, 0);
+    const segundos = grupos.reduce((n, g) => n + g.segundos, 0);
+    caja.append(el('p', { class: 'resumen', text: t('alm.total', { tamano: tamano(total), tiempo: tiempo(segundos) }) }));
+
+    const lista = el('div', { class: 'lista' });
+    for (const g of grupos) {
+      const rotulo = nombre(g.version, g.libro);
+      const quitar = el('button', {
+        type: 'button', class: 'icono', 'aria-label': t('alm.borrar', { libro: rotulo }),
+        onclick: async () => { await borrar({ libro: `${g.version}/${g.libro}` }); pintar(); },
+      });
+      quitar.innerHTML = PAPELERA;
+      lista.append(el('div', { class: 'fila-voz' },
+        el('div', { class: 'opcion quieta' }, el('span', {}, el('strong', { text: rotulo }), el('small', { text: t('alm.fila', { tamano: tamano(g.bytes), tiempo: tiempo(g.segundos) }) }))),
+        quitar));
+    }
+    let seguro = false;
+    const todo = el('button', {
+      type: 'button', class: 'opcion peligro',
+      onclick: async () => {
+        if (!seguro) { seguro = true; todo.querySelector('strong').textContent = t('alm.borrarTodoSeguro'); return; }
+        await borrar({});
+        pintar();
+      },
+    }, el('span', {}, el('strong', { text: t('alm.borrarTodo') })));
+    caja.append(lista, todo);
+  }
+  pintar();
+  return caja;
+}
+
 // --- ajustes generales ---
 
-export function abrirAjustes({ ajustes, cambiar, alGuardarMotor }) {
+export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen }) {
   const campo = el('input', { class: 'campo', type: 'url', value: ajustes.motor, 'aria-label': t('aj.motor'), autocomplete: 'off', spellcheck: 'false' });
   const cuerpo = el('div', {},
     el('h3', { text: t('aj.lectura') }),
     interruptor(t('aj.continuar'), t('aj.continuarNota'), ajustes.continuar, (continuar) => cambiar({ continuar })),
     el('h3', { text: t('aj.idioma') }),
     pastillas([['es', 'Español'], ['en', 'English']], ajustes.idioma, (idioma) => cambiar({ idioma })),
+    el('h3', { text: t('alm.titulo') }),
+    el('p', { class: 'nota', text: t('alm.nota') }),
+    el('div', { class: 'aire' }),
+    seccionAlmacen(almacen),
+    el('h3', { text: t('aj.instalar') }),
+    el('p', { class: 'nota', text: t('aj.instalarNota') }),
     el('h3', { text: t('aj.motor') }),
     el('form', { class: 'fila-campo', onsubmit: (e) => { e.preventDefault(); alGuardarMotor(campo.value); } },
       campo, el('button', { class: 'boton', text: t('aj.guardar') })),

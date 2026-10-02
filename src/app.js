@@ -6,6 +6,9 @@ import { textoParaVoz, reubicarPalabras } from './lectura/pronunciacion.js';
 import { repartoVelocidad } from './voz/velocidad.js';
 import { crearMotor, ErrorDeRed } from './voz/motor.js';
 import { crearReproductor } from './voz/reproductor.js';
+import { crearDescargas } from './voz/descargas.js';
+import { capituloGuardado, capitulosGuardados, textosDeVoz } from './voz/guardado.js';
+import { usoDeAudio, borrarAudio } from './almacen/audio.js';
 import { hablar, callar, hayVozDeDispositivo } from './voz/dispositivo.js';
 import { cargarCatalogo, cargarLibro, olvidarVersion, LibroAusente } from './datos/biblia.js';
 import { cargarAjustes, guardarAjustes, cargarPosicion, guardarPosicion } from './almacen/ajustes.js';
@@ -171,7 +174,9 @@ function pintar() {
     numero: unSoloCapitulo ? null : estado.cap,
     pasajes: estado.pasajes,
     pie: pieDeCapitulo(),
+    accion: botonDescarga,
   });
+  pintarDescarga();
   $('capitulo').lang = idiomaTexto();
   activarPasaje(estado.vista, estado.pasaje);
   pintarAvance();
@@ -291,13 +296,18 @@ const reproductor = crearReproductor({
 
   async clipDe(u) {
     const { texto, mapa } = textoDeUnidad(u);
-    const clip = await motor.clip({ texto, voz: vozActual(), velocidad: reparto().motor });
-    return { url: clip.url, palabras: reubicarPalabras(clip.palabras, mapa) };
+    const { motor: velocidad, total: objetivo } = reparto();
+    const clip = await motor.clip({
+      texto, voz: vozActual(), velocidad, objetivo,
+      origen: { version: estado.version.id, libro: u.libro, cap: u.tipo === 'anuncio' ? 0 : u.cap },
+    });
+    return { url: clip.url, palabras: reubicarPalabras(clip.palabras, mapa), velocidad: clip.velocidad };
   },
 
   siguiente: siguienteUnidad,
 
-  ritmo: () => reparto().reproductor,
+  // El audio puede venir de lo guardado, grabado a otra velocidad.
+  ritmo: (clip) => reparto().total / clip.velocidad,
 
   al: {
     unidad: alCambiarDeUnidad,
@@ -328,6 +338,12 @@ const reproductor = crearReproductor({
     },
 
     error(err, u) {
+      // Sin red y sin el anuncio guardado: se salta y sigue con el capítulo,
+      // que sí puede estar descargado.
+      if (err instanceof ErrorDeRed && u.tipo === 'anuncio') {
+        siguienteUnidad(u).then((sig) => sig && reproductor.reproducir(sig));
+        return;
+      }
       if (err instanceof ErrorDeRed && hayVozDeDispositivo(idiomaTexto())) {
         aviso(t('aviso.dispositivo'));
         leerConDispositivo(u);
@@ -387,9 +403,16 @@ function saltarCapitulo(paso) {
 
 // Tras cambiar de voz o de velocidad: el audio ya cargado puede no valer.
 function reajustarVoz(antes) {
-  const cambioDeAudio = antes.voz !== vozActual() || antes.motor !== reparto().motor;
-  if (!cambioDeAudio) { reproductor.ajustarRitmo(); return; }
+  pintarDescarga();
   reproductor.olvidarRelevo();
+  // Misma voz y un cambio de velocidad moderado: basta acelerar o frenar el
+  // audio que ya suena, sin pedir otro.
+  const estirado = reproductor.velocidadDelAudio ? reparto().total / reproductor.velocidadDelAudio : 0;
+  if (antes.voz === vozActual() && estirado >= 0.6 && estirado <= 1.7) {
+    reproductor.ajustarRitmo();
+    reproductor.rehacerRelevo();
+    return;
+  }
   if (reproductor.sonando && reproductor.unidad?.tipo === 'pasaje') {
     leerDesde(reproductor.unidad.i, reproductor.caracter);
   } else if (reproductor.sonando) {
@@ -398,6 +421,94 @@ function reajustarVoz(antes) {
     reproductor.detener();
   }
 }
+
+/* ---------- audio sin conexión ---------- */
+
+const ICONOS_DESCARGA = {
+  nada: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14"/></svg>',
+  bajando: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect class="lleno" x="9" y="9" width="6" height="6" rx="1"/></svg>',
+  guardado: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></svg>',
+  confirmar: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
+};
+
+const botonDescarga = el('button', { type: 'button', class: 'icono descarga', onclick: alternarDescarga });
+
+// La descarga va ligada al capítulo y a la voz: otra voz es otro audio.
+const grupoDescarga = (libro = estado.libro, cap = estado.cap) => `${estado.version.id}/${libro}/${cap}/${vozActual()}`;
+
+function ponerDescarga(modo, valores = {}) {
+  botonDescarga.dataset.estado = modo;
+  botonDescarga.innerHTML = ICONOS_DESCARGA[modo];
+  const clave = { nada: 'desc.descargar', bajando: 'desc.bajando', guardado: 'desc.guardado', confirmar: 'desc.confirmar' }[modo];
+  botonDescarga.setAttribute('aria-label', t(clave, valores));
+  botonDescarga.title = t(clave, valores);
+  botonDescarga.style.setProperty('--hecho', valores.total ? `${(valores.n / valores.total) * 100}%` : '0%');
+}
+
+async function pintarDescarga() {
+  if (!estado.version || !estado.pasajes.length) return;
+  const grupo = grupoDescarga();
+  const enCurso = descargas.estado(grupo);
+  if (enCurso) { ponerDescarga('bajando', { n: enCurso.hechos, total: enCurso.total }); return; }
+  const guardado = await capituloGuardado({ version: estado.version.id, libro: estado.libro, pasajes: estado.pasajes, voz: vozActual() });
+  if (grupo === grupoDescarga() && !descargas.estado(grupo)) ponerDescarga(guardado ? 'guardado' : 'nada');
+}
+
+const descargas = crearDescargas({
+  guardar: (pedido) => motor.guardar(pedido),
+  alAvanzar(grupo, d) {
+    if (grupo !== grupoDescarga()) return;
+    if (d) ponerDescarga('bajando', { n: d.hechos, total: d.total });
+  },
+});
+
+async function alternarDescarga() {
+  const grupo = grupoDescarga();
+  const { libro, cap } = estado;
+  const version = estado.version.id;
+  const titulo = tituloCapitulo(libro, cap, estado.ajustes.idioma);
+  const modo = botonDescarga.dataset.estado;
+
+  if (modo === 'bajando') { descargas.cancelar(grupo); return; }
+  if (modo === 'guardado') {
+    ponerDescarga('confirmar');
+    setTimeout(() => { if (botonDescarga.dataset.estado === 'confirmar') pintarDescarga(); }, 4000);
+    return;
+  }
+  if (modo === 'confirmar') {
+    await borrarAudio({ libro: `${version}/${libro}`, cap });
+    aviso(t('desc.quitada', { capitulo: titulo }));
+    pintarDescarga();
+    return;
+  }
+
+  navigator.storage?.persist?.().catch(() => {});      // que el navegador no lo borre por su cuenta
+  const voz = vozActual();
+  const { motor: velocidad } = reparto();
+  const pedidos = textosDeVoz(estado.pasajes, version).map((texto) => ({ texto, voz, velocidad, origen: { version, libro, cap } }));
+  // También el anuncio del capítulo, para que la lectura continua llegue a él sin red.
+  const anuncios = new Set([false, cap === 1].map((conLibro) => anuncioCapitulo(libro, cap, idiomaTexto(), { conLibro })));
+  for (const texto of anuncios) pedidos.push({ texto, voz, velocidad, origen: { version, libro, cap: 0 } });
+  try {
+    const fin = await descargas.descargar(grupo, pedidos);
+    if (fin === 'hecha') aviso(t('desc.lista', { capitulo: titulo }));
+    if (fin === 'cancelada') aviso(t('desc.cancelada'));
+  } catch {
+    aviso(t('desc.error'));
+  }
+  pintarDescarga();
+}
+
+// Para el navegador de libros: qué capítulos de un libro tienen el audio guardado.
+async function capitulosConAudio(libro) {
+  const datos = await cargarLibro(estado.version.id, libro);
+  return capitulosGuardados({ version: estado.version.id, libro, capitulos: datos.caps, voz: vozActual() });
+}
+
+const nombreDeGrupo = (version, libro) => {
+  const v = estado.catalogo.find((x) => x.id === version);
+  return `${nombreLibro(libro, estado.ajustes.idioma) || t('voz.titulo')} · ${v?.sigla ?? version}`;
+};
 
 /* ---------- respaldo: voz del dispositivo ---------- */
 
@@ -561,6 +672,7 @@ function conectar() {
     idioma: estado.ajustes.idioma,
     actual: { libro: estado.libro, cap: estado.cap },
     alIr: (libro, cap, vers) => irA(libro, cap, { vers }),
+    guardados: capitulosConAudio,
   }));
 
   $('btnVersion').addEventListener('click', verVersiones);
@@ -590,6 +702,11 @@ function conectar() {
   $('btnAjustes').addEventListener('click', () => abrirAjustes({
     ajustes: estado.ajustes,
     cambiar: cambiarAjustes,
+    almacen: {
+      uso: usoDeAudio,
+      nombre: nombreDeGrupo,
+      borrar: async (que) => { await borrarAudio(que); pintarDescarga(); },
+    },
     alGuardarMotor(url) {
       cambiarAjustes({ motor: url.trim() });
       motor.cambiarUrl(url);
@@ -700,6 +817,8 @@ async function arrancar() {
   const destino = enlace ?? (guardada && datosLibro(guardada.libro) ? guardada : { libro: 'JHN', cap: 1 });
   await irA(destino.libro, destino.cap, { pasaje: enlace ? 0 : destino.pasaje ?? 0, leer: false });
   cargarVoces();
+  // El service worker deja la app y los textos abiertos disponibles sin conexión.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 arrancar();

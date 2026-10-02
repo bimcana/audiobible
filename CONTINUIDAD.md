@@ -3,7 +3,7 @@
 Guía para retomar el proyecto en otra sesión: **qué es**, **cómo está montado**,
 **qué se probó y descartó** y **qué no se debe romper**.
 
-Última actualización: 2026-10-01 · fases 1 (textos), 2 (lector y voz) y 3 (importador) terminadas
+Última actualización: 2026-10-01 · fases 1 a 4 terminadas (textos, lector y voz, importador, sin conexión)
 
 ---
 
@@ -17,7 +17,7 @@ Los textos van incluidos; no se suben archivos.
 - **Especificación:** `docs/superpowers/specs/2026-10-01-audiobible-design.md`
 - **Planes por fase:** `docs/superpowers/plans/`
 
-Fases: 1 textos ✅ · 2 lector y voz ✅ · 3 importador local ✅ · 4 sin conexión ·
+Fases: 1 textos ✅ · 2 lector y voz ✅ · 3 importador local ✅ · 4 sin conexión ✅ ·
 5 estudio · 6 planes, inglés y licencias.
 
 ---
@@ -272,3 +272,47 @@ PDF reales no pueden estar en el repositorio.
 (`CompressionStream`). La NVI ocupa 1,5 MB y se instala en 0,3 segundos. Sirve
 para pasar la versión del ordenador al teléfono sin volver a leer los PDF. Es
 una copia personal del lector: la app no la aloja.
+
+---
+
+## 9. Sin conexión (fase 4)
+
+Tres cosas distintas, guardadas en tres sitios:
+
+| Qué | Dónde | Cómo se llena |
+|---|---|---|
+| La app (HTML, estilos, módulos) | Cache `audiobible-app-v1` | `sw.js`, red primero |
+| Los textos (`data/`) y las tipografías | Caches `audiobible-datos-v1` y `audiobible-fuentes-v1` | `sw.js`, lo guardado primero |
+| El audio y sus tiempos | IndexedDB, almacenes `audio` y `audioFichas` | `src/voz/motor.js` |
+
+**La app va con «red primero».** Con conexión siempre se sirve lo último, entero;
+sin conexión, lo guardado. Así desaparece el problema de Lyrio con los `?v=`:
+no hay forma de mezclar un HTML nuevo con módulos viejos.
+
+**Los textos van con «guardado primero»** porque no cambian. Consecuencia: si
+se regenera `data/` o se añade una versión al catálogo, **hay que subir el
+número de `DATOS` en `sw.js`**, o los dispositivos seguirán con lo viejo.
+
+**El audio se guarda por texto y voz, no por capítulo.** La clave es
+`voz | huella del texto | velocidad`. Todo pasaje que se escucha queda
+guardado; el icono de descarga de cada capítulo solo adelanta ese trabajo y
+añade el anuncio del capítulo.
+
+**Un capítulo cuenta como descargado si están todos sus pasajes con la voz en
+uso, a cualquier velocidad.** Un audio grabado a otra velocidad se aprovecha
+acelerándolo o frenándolo en el reproductor (`ritmo(clip)` usa la velocidad a
+la que se grabó ese audio). Solo se pide otro al motor si el estirón saldría de
+0,6–1,7, donde ya suena forzado.
+
+**El sonido y su ficha van en almacenes separados** con la misma clave. Para
+saber qué hay guardado se leen solo las fichas; leer el almacén de sonido
+cargaría todos los MP3 en memoria.
+
+**Sin red y sin el anuncio guardado, el anuncio se salta** en vez de pasar a la
+voz del dispositivo: el capítulo que sigue puede estar descargado.
+
+Medido: descargar el Salmo 23 son 2 peticiones; después, con las peticiones al
+motor bloqueadas, la lectura arranca igual.
+
+**Sin probar:** instalación como app en iPhone y Android, y el límite de
+almacenamiento real de Safari.

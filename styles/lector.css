@@ -168,3 +168,22 @@ p.capitular.suelta {
   #capitulo { padding-top: 1.5rem; }
   .capitular { font-size: calc(var(--renglon) * 2.9em); }
 }
+
+/* --- cabecera del capítulo con el botón de descarga --- */
+
+.cap-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.1em; min-height: 2.75rem; }
+.cap-cabeza .cap-libro { margin: 0; }
+
+.descarga { font-size: 1rem; position: relative; }
+.descarga[data-estado='guardado'] { color: var(--rubrica); }
+.descarga[data-estado='confirmar'] { color: var(--rubrica); background: color-mix(in srgb, var(--rubrica) 12%, transparent); }
+/* Descargando: un anillo que se va cerrando alrededor del botón de parar. */
+.descarga[data-estado='bajando']::before {
+  content: '';
+  position: absolute;
+  inset: .4rem;
+  border-radius: 50%;
+  background: conic-gradient(var(--rubrica) var(--hecho, 0%), var(--linea) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+}

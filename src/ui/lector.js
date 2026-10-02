@@ -69,9 +69,12 @@ function pintarPasaje(pasaje, indice, capitular) {
 }
 
 // Pinta el capítulo entero y devuelve la vista para el resaltado.
-export function pintarCapitulo(raiz, { nombreLibro, numero, pasajes, pie }) {
+export function pintarCapitulo(raiz, { nombreLibro, numero, pasajes, pie, accion }) {
   raiz.replaceChildren();
-  raiz.append(crear('p', 'cap-libro', nombreLibro));
+  const cabeza = crear('header', 'cap-cabeza');
+  cabeza.append(crear('p', 'cap-libro', nombreLibro));
+  if (accion) cabeza.append(accion);
+  raiz.append(cabeza);
 
   // El número acompaña al primer pasaje de texto: los títulos y el
   // sobrescrito de un salmo quedan por encima, como en una Biblia impresa.
