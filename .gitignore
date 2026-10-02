@@ -8,3 +8,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 herramientas/.cache/
+
+# Archivos de traspaso: son copias personales de Biblias importadas
+*.audiobible
