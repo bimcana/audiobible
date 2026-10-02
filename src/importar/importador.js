@@ -26,7 +26,7 @@ export async function empaquetar(meta, libros) {
   return new Blob([await new Response(flujo).arrayBuffer()], { type: 'application/octet-stream' });
 }
 
-async function desempaquetar(archivo) {
+export async function desempaquetar(archivo) {
   const flujo = archivo.stream().pipeThrough(new DecompressionStream('gzip'));
   const datos = JSON.parse(await new Response(flujo).text());
   if (datos?.formato !== 'audiobible' || !Array.isArray(datos.libros)) throw new Error('formato');

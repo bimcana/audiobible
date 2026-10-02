@@ -189,13 +189,48 @@ function seccionAlmacen({ uso, nombre, borrar }) {
 
 // --- ajustes generales ---
 
-export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen, alVerLicencias }) {
+// Campo para escribir la clave de una versión privada.
+// desbloquear(texto) → Promise<ficha>; lanza Error con .codigo
+function seccionPrivada({ desbloquear, alDesbloquear }) {
+  const campo = el('input', {
+    class: 'campo', type: 'text', placeholder: 'XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX', 'aria-label': t('priv.clave'),
+    autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false',
+  });
+  const estado = el('p', { class: 'nota', role: 'status' });
+  const boton = el('button', { class: 'boton', text: t('priv.abrir') });
+  return el('div', {},
+    el('form', {
+      class: 'fila-campo',
+      onsubmit: async (e) => {
+        e.preventDefault();
+        boton.disabled = true;
+        estado.classList.remove('campo-error');
+        estado.textContent = t('priv.abriendo');
+        try {
+          const ficha = await desbloquear(campo.value);
+          campo.value = '';
+          alDesbloquear(ficha);
+        } catch (err) {
+          estado.classList.add('campo-error');
+          estado.textContent = t({ forma: 'priv.error.forma', red: 'priv.error.red', clave: 'priv.error.clave', guardar: 'imp.error.guardar' }[err.codigo] ?? 'imp.error.general');
+        }
+        boton.disabled = false;
+      },
+    }, campo, boton),
+    estado);
+}
+
+export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen, alVerLicencias, privada }) {
   const campo = el('input', { class: 'campo', type: 'url', value: ajustes.motor, 'aria-label': t('aj.motor'), autocomplete: 'off', spellcheck: 'false' });
   const cuerpo = el('div', {},
     el('h3', { text: t('aj.lectura') }),
     interruptor(t('aj.continuar'), t('aj.continuarNota'), ajustes.continuar, (continuar) => cambiar({ continuar })),
     el('h3', { text: t('aj.idioma') }),
     pastillas([['es', 'Español'], ['en', 'English']], ajustes.idioma, (idioma) => cambiar({ idioma })),
+    el('h3', { text: t('priv.titulo') }),
+    el('p', { class: 'nota', text: t('priv.nota') }),
+    el('div', { class: 'aire' }),
+    seccionPrivada(privada),
     el('h3', { text: t('alm.titulo') }),
     el('p', { class: 'nota', text: t('alm.nota') }),
     el('div', { class: 'aire' }),

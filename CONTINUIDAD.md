@@ -440,3 +440,29 @@ palabras sin marcar (por ejemplo en Juan 10:10). Viene de la fuente, que
 separa las palabras en cursiva y pierde la marca en ellas.
 
 **Iconos:** `python herramientas/iconos.py` genera las opciones en `iconos/`.
+
+---
+
+## 14. Versión privada cifrada e icono (2026-10-02)
+
+**La NVI está en el repositorio, pero cifrada.** El autor quería tenerla en
+todos sus dispositivos sin repetir la importación. Subir el texto legible a un
+repositorio público sería publicarlo; cifrado con una clave que solo él tiene,
+no lo es: para cualquier otra persona `privado/nvi.bin` es ruido.
+
+| Pieza | Qué hace |
+|---|---|
+| `herramientas/cifrar-version.mjs` | Cifra un `.audiobible` con AES-GCM de 128 bits y una clave al azar. Escribe `privado/<id>.bin` y `privado/indice.json`. |
+| `NVI/clave-nvi.txt` | La clave, en 26 letras y cifras. Está en una carpeta que git ignora. **No debe subirse nunca.** |
+| `src/importar/privada.js` | En el navegador: lee la clave escrita, descarga el archivo, lo descifra con WebCrypto y lo guarda como versión propia (`propia-nvi`). |
+| Ajustes → Versión privada | El campo donde se escribe la clave, una vez por dispositivo. |
+
+Una vez desbloqueada, la versión vive en IndexedDB como cualquier otra
+importada y la clave no se guarda en ningún sitio. Si la clave se filtrara,
+hay que volver a ejecutar la herramienta (genera otra) y publicar de nuevo; el
+archivo anterior seguiría en el historial de git, descifrable con la clave
+vieja.
+
+**Icono:** Biblia cerrada con el título y cinta roja (opción `f` de
+`herramientas/iconos.py`). El título se dibuja con trazos sacados de la
+tipografía, no como texto, para que se vea igual en cualquier dispositivo.

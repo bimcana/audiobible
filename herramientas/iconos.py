@@ -68,6 +68,20 @@ OPCIONES = {
     <path d="M256 240v176"/>
   </g>
 '''),
+    # Biblia cerrada gris oscuro con el título en blanco y cinta roja: la elegida.
+    'f': ('Santa Biblia', f'''
+  <rect width="512" height="512" fill="#FFFFFF"/>
+  <path d="M236 396v62l17-14 17 14v-62z" fill="#E8392E"/>
+  <path d="M150 96h214q14 0 20 12l-8 14H150z" fill="#1F1F1F"/>
+  <path d="M158 104h210q8 0 12 8l-6 10H158z" fill="#F4F4F2"/>
+  <rect x="128" y="112" width="262" height="290" rx="22" fill="#3F3F41"/>
+  <path d="M150 112h20v290h-20a22 22 0 0 1-22-22V134a22 22 0 0 1 22-22z" fill="#2A2A2C"/>
+  <rect x="170" y="112" width="5" height="290" fill="#555557"/>
+  <g font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="50" fill="#FFFFFF" text-anchor="middle">
+    <text x="282" y="238">SANTA</text>
+    <text x="282" y="290">BIBLIA</text>
+  </g>
+'''),
     # Biblia abierta sobre rojo de rúbrica, con cinta.
     'e': ('Abierta sobre rojo', f'''
   <rect width="512" height="512" fill="#9C2A20"/>
@@ -84,6 +98,35 @@ OPCIONES = {
   <path d="M300 384v70l17-15 17 15v-78z" fill="{ORO}"/>
 '''),
 }
+
+
+def titulo(lineas, centro, base, tamano, salto):
+    """El título como trazos, no como texto: así se ve igual en cualquier
+    dispositivo, tenga o no la tipografía."""
+    from fontTools.ttLib import TTFont
+    from fontTools.pens.svgPathPen import SVGPathPen
+    from fontTools.pens.transformPen import TransformPen
+
+    fuente = TTFont('C:/Windows/Fonts/arialbd.ttf')
+    glifos, mapa, avances = fuente.getGlyphSet(), fuente.getBestCmap(), fuente['hmtx']
+    escala = tamano / fuente['head'].unitsPerEm
+    trazos = []
+    for i, linea in enumerate(lineas):
+        nombres = [mapa[ord(c)] for c in linea]
+        ancho = sum(avances[n][0] for n in nombres) * escala
+        x = centro - ancho / 2
+        for n in nombres:
+            pluma = SVGPathPen(glifos)
+            glifos[n].draw(TransformPen(pluma, (escala, 0, 0, -escala, x, base + i * salto)))
+            trazos.append(pluma.getCommands())
+            x += avances[n][0] * escala
+    return f'<path d="{" ".join(trazos)}" fill="#FFFFFF"/>'
+
+
+# El título de la opción elegida se dibuja con trazos.
+_nombre, _cuerpo = OPCIONES['f']
+_inicio, _fin = _cuerpo.index('<g font-family'), _cuerpo.index('</g>') + 4
+OPCIONES['f'] = (_nombre, _cuerpo[:_inicio] + titulo(['SANTA', 'BIBLIA'], 282, 244, 50, 54) + _cuerpo[_fin:])
 
 
 def svg(cuerpo, recorte=True):
@@ -115,3 +158,13 @@ if __name__ == '__main__':
     hoja = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {ancho} 380">{"".join(piezas)}</svg>'
     png(hoja, ancho, 'iconos/opciones.png')
     print('listo:', ', '.join(OPCIONES))
+
+    # La opción elegida pasa a ser el icono de la app.
+    elegida = 'f'
+    cuerpo = OPCIONES[elegida][1]
+    with open('icon.svg', 'w', encoding='utf-8', newline='\n') as f:
+        f.write(svg(cuerpo))
+    # Los PNG van sin recorte: el sistema redondea las esquinas por su cuenta.
+    png(svg(cuerpo, recorte=False), 512, 'icon-512.png')
+    png(svg(cuerpo, recorte=False), 180, 'icon-180.png')
+    print('icono de la app:', elegida)

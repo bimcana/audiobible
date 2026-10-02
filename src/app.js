@@ -16,11 +16,12 @@ import { t, fijarIdioma } from './i18n/textos.js';
 import {
   pintarCapitulo, mensajeCarga, palabraEn, iluminar, activarPasaje, mantenerALaVista, destellar,
 } from './ui/lector.js';
-import { prepararHoja, abrirHoja, hojaAbierta, el, pastillas } from './ui/hoja.js';
+import { prepararHoja, abrirHoja, cerrarHoja, hojaAbierta, el } from './ui/hoja.js';
 import { abrirNavegador } from './ui/navegador.js';
 import { abrirVersiones } from './ui/versiones.js';
 import { abrirImportador, abrirGestion } from './ui/importar.js';
 import { crearEstudio } from './estudio.js';
+import { desbloquear } from './importar/privada.js';
 import { cuerpoPlanes } from './ui/planes.js';
 import { abrirLicencias } from './ui/licencias.js';
 import { PLANES, claveCapitulo } from './planes/planes.js';
@@ -830,6 +831,7 @@ function conectar() {
   $('btnAjustes').addEventListener('click', () => abrirAjustes({
     ajustes: estado.ajustes,
     cambiar: cambiarAjustes,
+    privada: { desbloquear, alDesbloquear: (ficha) => { cerrarHoja(); alGuardarPropia(ficha); } },
     alVerLicencias: () => abrirLicencias({ catalogo: estado.catalogo, volver: () => $('btnAjustes').click() }),
     almacen: {
       uso: usoDeAudio,
