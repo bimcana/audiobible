@@ -336,7 +336,8 @@ export function crearEstudio(ctx) {
 
   /* ---------- mis notas ---------- */
 
-  async function abrirNotas() {
+  // El contenido de «Mis notas»; alCerrar se llama cuando hay que repintar la hoja.
+  async function cuerpoNotas() {
     const todas = await todasLasMarcas();
     let filtro = 'todo';
     const lista = el('div', {});
@@ -391,9 +392,7 @@ export function crearEstudio(ctx) {
     });
 
     pintar();
-    abrirHoja({
-      titulo: t('notas.titulo'),
-      contenido: el('div', {},
+    return el('div', {},
         pastillas([['todo', t('bus.todo')], ['notas', t('notas.notas')], ['subrayados', t('notas.subrayados')], ['marcadores', t('notas.marcadores')]], filtro, (f) => { filtro = f; pintar(); }),
         el('div', { class: 'aire' }),
         lista,
@@ -404,8 +403,7 @@ export function crearEstudio(ctx) {
           el('button', { type: 'button', text: t('notas.guardarCopia'), onclick: guardarCopia, disabled: !todas.length }),
           el('button', { type: 'button', text: t('notas.restaurar'), onclick: () => entrada.click() }),
           el('button', { type: 'button', text: t('notas.comoTexto'), onclick: comoTexto, disabled: !todas.length })),
-        entrada),
-    });
+        entrada);
   }
 
   /* ---------- gestos sobre el texto ---------- */
@@ -461,5 +459,5 @@ export function crearEstudio(ctx) {
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && seleccion.size && !$('hoja').open) limpiar(); });
 
-  return { conectar, alTocar, refrescar, limpiar, abrirBusqueda, abrirNotas };
+  return { conectar, alTocar, refrescar, limpiar, abrirBusqueda, cuerpoNotas };
 }

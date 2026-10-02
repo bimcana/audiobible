@@ -16,11 +16,15 @@ import { t, fijarIdioma } from './i18n/textos.js';
 import {
   pintarCapitulo, mensajeCarga, palabraEn, iluminar, activarPasaje, mantenerALaVista,
 } from './ui/lector.js';
-import { prepararHoja, hojaAbierta, el } from './ui/hoja.js';
+import { prepararHoja, abrirHoja, hojaAbierta, el, pastillas } from './ui/hoja.js';
 import { abrirNavegador } from './ui/navegador.js';
 import { abrirVersiones } from './ui/versiones.js';
 import { abrirImportador, abrirGestion } from './ui/importar.js';
 import { crearEstudio } from './estudio.js';
+import { cuerpoPlanes } from './ui/planes.js';
+import { abrirLicencias } from './ui/licencias.js';
+import { PLANES, claveCapitulo } from './planes/planes.js';
+import { marcarCapitulo } from './almacen/planes.js';
 import {
   abrirVoces, abrirVelocidad, abrirTemporizador, abrirTexto, abrirAjustes, etiquetaVelocidad, COLOR_DE_TEMA,
 } from './ui/paneles.js';
@@ -160,8 +164,8 @@ function rotular() {
   $('btnAjustes').setAttribute('aria-label', t('ajustes'));
   $('btnBuscar').setAttribute('aria-label', t('bus.titulo'));
   $('btnBuscar').title = t('bus.titulo');
-  $('btnNotas').setAttribute('aria-label', t('notas.titulo'));
-  $('btnNotas').title = t('notas.titulo');
+  $('btnNotas').setAttribute('aria-label', t('lectura.titulo'));
+  $('btnNotas').title = t('lectura.titulo');
   $('btnTexto').setAttribute('aria-label', t('texto'));
   $('btnVoz').setAttribute('aria-label', `${t('voz')}: ${nombreDeVoz()}`);
   $('btnVelocidad').setAttribute('aria-label', `${t('velocidad')}: ${etiquetaVelocidad(estado.ajustes.velocidad)}`);
@@ -318,7 +322,18 @@ async function siguienteUnidad(u) {
 
 const lectorQuieto = () => Date.now() - estado.desplazadoEn > 4000;
 
+// Un capítulo oído hasta el final cuenta como leído en los planes que lo incluyen.
+function darPorLeido(u) {
+  if (!u || u.tipo !== 'pasaje' || u.i + 1 < u.pasajes.length) return;
+  const planes = PLANES.filter((p) => p.libros.has(u.libro)).map((p) => p.id);
+  marcarCapitulo(claveCapitulo(u.libro, u.cap), { planes }).catch(() => {});
+}
+
+let unidadAnterior = null;
+
 function alCambiarDeUnidad(u) {
+  if (unidadAnterior && (unidadAnterior.libro !== u.libro || unidadAnterior.cap !== u.cap)) darPorLeido(unidadAnterior);
+  unidadAnterior = u;
   if (u.libro !== estado.libro || u.cap !== estado.cap) {
     mostrar(u.libro, u.cap, u.pasajes);
     $('escena').scrollTo({ top: 0, behavior: 'instant' });
@@ -377,6 +392,8 @@ const reproductor = crearReproductor({
     },
 
     fin() {
+      darPorLeido(unidadAnterior);
+      unidadAnterior = null;
       if (estado.temporizador === 'capitulo') { fijarTemporizador(null); aviso(t('temp.fin')); }
       else if (!vecino(estado.libro, estado.cap, 1)) aviso(t('aviso.finBiblia'));
     },
@@ -683,6 +700,22 @@ async function cambiarComparacion(id) {
   rotular();
 }
 
+let pestanaLectura = 'planes';
+
+async function abrirMiLectura(pestana = pestanaLectura) {
+  pestanaLectura = pestana;
+  const cuerpo = pestana === 'planes'
+    ? cuerpoPlanes({ idioma: estado.ajustes.idioma, irA: (libro, cap) => irA(libro, cap), aviso })
+    : await estudio.cuerpoNotas();
+  abrirHoja({
+    titulo: t('lectura.titulo'),
+    contenido: el('div', {},
+      pastillas([['planes', t('plan.titulo')], ['notas', t('notas.titulo')]], pestana, abrirMiLectura),
+      el('div', { class: 'aire' }),
+      cuerpo),
+  });
+}
+
 /* ---------- versiones propias ---------- */
 
 function verVersiones() {
@@ -735,7 +768,7 @@ function conectar() {
 
   $('btnVersion').addEventListener('click', verVersiones);
   $('btnBuscar').addEventListener('click', estudio.abrirBusqueda);
-  $('btnNotas').addEventListener('click', estudio.abrirNotas);
+  $('btnNotas').addEventListener('click', () => abrirMiLectura());
   estudio.conectar($('capitulo'));
 
   $('btnVoz').addEventListener('click', () => abrirVoces({
@@ -763,6 +796,7 @@ function conectar() {
   $('btnAjustes').addEventListener('click', () => abrirAjustes({
     ajustes: estado.ajustes,
     cambiar: cambiarAjustes,
+    alVerLicencias: () => abrirLicencias({ catalogo: estado.catalogo, volver: () => $('btnAjustes').click() }),
     almacen: {
       uso: usoDeAudio,
       nombre: nombreDeGrupo,

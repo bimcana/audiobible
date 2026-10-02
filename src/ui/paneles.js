@@ -189,7 +189,7 @@ function seccionAlmacen({ uso, nombre, borrar }) {
 
 // --- ajustes generales ---
 
-export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen }) {
+export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen, alVerLicencias }) {
   const campo = el('input', { class: 'campo', type: 'url', value: ajustes.motor, 'aria-label': t('aj.motor'), autocomplete: 'off', spellcheck: 'false' });
   const cuerpo = el('div', {},
     el('h3', { text: t('aj.lectura') }),
@@ -206,6 +206,9 @@ export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen }) {
     el('form', { class: 'fila-campo', onsubmit: (e) => { e.preventDefault(); alGuardarMotor(campo.value); } },
       campo, el('button', { class: 'boton', text: t('aj.guardar') })),
     el('p', { class: 'nota', text: t('aj.motorNota') }),
+    el('div', { class: 'aire' }),
+    el('button', { type: 'button', class: 'opcion sola', onclick: alVerLicencias },
+      el('span', {}, el('strong', { text: t('lic.titulo') }), el('small', { text: t('lic.entrada') }))),
   );
   abrirHoja({ titulo: t('aj.titulo'), contenido: cuerpo });
 }

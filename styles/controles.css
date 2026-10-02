@@ -504,3 +504,40 @@ mark { background: var(--m-amarillo); color: inherit; border-radius: 3px; paddin
 .nota-campo { min-height: 8rem; padding: .7rem .9rem; line-height: 1.5; resize: vertical; font-family: var(--serif); font-size: 1.05rem; }
 .boton.ancho { width: 100%; }
 .pastillas button:disabled { opacity: .45; cursor: default; }
+
+/* --- planes de lectura y licencias --- */
+
+.plan { padding-bottom: 1.2rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--linea); }
+.plan > h3 { font-family: var(--serif); font-size: 1.15rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--tinta); margin-bottom: .1rem; }
+.plan .progreso { margin: .6rem 0 .5rem; }
+.plan h4 { margin-left: .2rem; }
+.leido { color: var(--tinta-2); text-decoration: line-through; text-decoration-color: var(--linea); }
+
+.visto {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  color: transparent;
+}
+.visto::before {
+  content: '';
+  grid-area: 1 / 1;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--tinta-2);
+  transition: background-color .15s, border-color .15s;
+}
+.visto svg { grid-area: 1 / 1; stroke-width: 2.6; }
+.visto[aria-checked='true'] { color: var(--superficie); }
+.visto[aria-checked='true']::before { background: var(--rubrica); border-color: var(--rubrica); }
+
+.enlace { margin-top: .6rem; min-height: 2.75rem; font-size: .85rem; color: var(--tinta-2); text-decoration: underline; text-underline-offset: .2em; }
+.enlace:hover { color: var(--rubrica); }
+
+.licencia { padding: .8rem 0; border-bottom: 1px solid var(--linea); }
+.licencia:last-of-type { border-bottom: 0; }
+.licencia strong { font-family: var(--serif); font-size: 1.02rem; }
+.aviso-legal { margin: .4rem 0 0; font-size: .82rem; line-height: 1.5; }
+.hoja a { color: var(--rubrica); }

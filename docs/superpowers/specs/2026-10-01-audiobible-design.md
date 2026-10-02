@@ -1,6 +1,6 @@
 # AudioBible — especificación de diseño
 
-Fecha: 2026-10-01 · Estado: aprobado por secciones, pendiente de revisión final
+Fecha: 2026-10-01 · Estado: aprobado e implementado. Lo que cambió al construirlo está en `CONTINUIDAD.md`.
 
 ## 1. Qué es
 

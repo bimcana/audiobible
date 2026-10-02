@@ -4,9 +4,19 @@ La Biblia leída en voz alta con voces neuronales y resaltado palabra por
 palabra, en español e inglés. App web estática, pública y gratuita, hermana de
 [Lyrio](https://github.com/bimcana/Lyrio).
 
-**Estado:** fases 1 a 5 de 6 terminadas. La app abre cualquier capítulo de las
-diez versiones y lo lee en voz alta con karaoke, y permite añadir una Biblia
-propia desde un PDF y descargar el audio de cada capítulo para oírlo sin conexión. Tiene búsqueda, comparación de versiones, subrayados, notas y referencias cruzadas. Faltan los planes de lectura.
+**App:** https://bimcana.github.io/audiobible/
+
+**Estado:** versión 1 completa.
+
+- Diez versiones libres, cinco en español y cinco en inglés.
+- Lectura continua en voz alta, sin pronunciar los números de versículo, con
+  resaltado palabra por palabra.
+- Audio descargable por capítulo para oírlo sin conexión.
+- Búsqueda, comparación de versiones, subrayados, notas, marcadores y
+  referencias cruzadas.
+- Planes de lectura.
+- Importador para leer una Biblia propia desde un PDF, guardada solo en el
+  dispositivo.
 
 Para verla en local: `python -m http.server 8095` y abrir
 `http://localhost:8095`.

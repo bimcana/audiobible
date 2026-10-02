@@ -3,7 +3,7 @@
 Guía para retomar el proyecto en otra sesión: **qué es**, **cómo está montado**,
 **qué se probó y descartó** y **qué no se debe romper**.
 
-Última actualización: 2026-10-01 · fases 1 a 5 terminadas (textos, lector y voz, importador, sin conexión, estudio)
+Última actualización: 2026-10-01 · las seis fases terminadas: versión 1 completa
 
 ---
 
@@ -18,7 +18,7 @@ Los textos van incluidos; no se suben archivos.
 - **Planes por fase:** `docs/superpowers/plans/`
 
 Fases: 1 textos ✅ · 2 lector y voz ✅ · 3 importador local ✅ · 4 sin conexión ✅ · 5 estudio ✅ ·
-6 planes y licencias.
+6 planes y licencias ✅
 
 ---
 
@@ -356,3 +356,43 @@ texto en la versión que se está leyendo.
 
 **Copia de seguridad de las notas:** un JSON que se descarga y se restaura
 desde «Mis notas». Al restaurar, ante un mismo versículo gana lo más reciente.
+
+---
+
+## 11. Planes de lectura y licencias (fase 6)
+
+**Los planes se calculan, no se guardan.** `src/planes/planes.js` reparte los
+capítulos de un conjunto de libros, en orden, lo más parejo posible entre los
+días. Cuatro planes: la Biblia en un año (1 189 capítulos), el Nuevo
+Testamento en 90 días (260), Salmos y Proverbios en 60 (181) y los Evangelios
+en 30 (89). Añadir otro es una línea en `PLANES` y dos textos.
+
+**No hay calendario.** «Hoy» es el primer día sin terminar, no la fecha. Si el
+lector se salta una semana, el plan sigue donde lo dejó; nada marca retraso.
+La racha sí mira el calendario (días seguidos con algún capítulo leído) y
+perdona el día en curso.
+
+**Un capítulo se da por leído al oírlo hasta el final** (`darPorLeido()` en
+`app.js`, cuando la lectura pasa al capítulo siguiente o termina), en todos
+los planes activos que lo incluyan. También se puede marcar o desmarcar a mano
+desde la hoja «Mi lectura».
+
+**Licencias:** `src/ui/licencias.js` muestra el aviso de cada versión tal como
+está en `data/versiones.json`, que sale de `herramientas/fuentes.mjs`. Si se
+añade una versión, su aviso aparece solo. Los créditos de datos, voces y
+tipografías están escritos en ese módulo.
+
+---
+
+## 12. Pendiente y no comprobado
+
+- **Dispositivos reales.** Todo se probó en el navegador integrado de
+  escritorio y en su emulación de móvil. Falta iPhone, iPad y Android: pantalla
+  bloqueada, controles del sistema, instalación como app, pulsación larga.
+- **El motor compartido con Lyrio.** Si Render lo duerme, la primera lectura
+  tarda hasta un minuto; si cae, caen las dos apps.
+- **Permisos de las editoriales.** `docs/permisos/solicitud-biblica-nvi.md`
+  está redactado y sin enviar.
+- **Importador:** un solo perfil de PDF. Otros formatos (EPUB, USFM) no.
+- **Versículo a versículo en la comparación**, notas al pie, deuterocanónicos,
+  sincronización entre dispositivos y exportación a MP3: fuera de alcance.
