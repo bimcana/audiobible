@@ -549,3 +549,17 @@ modelo declara y, si falla por la forma de la petición, el otro.
 
 La clave se guarda en `localStorage` del dispositivo y viaja solo a Google, en
 la cabecera `x-goog-api-key`. El uso se factura a la cuenta del lector.
+
+**Probado con una clave real el 2026-10-02**, desde el navegador y desde Node:
+
+- La clave se acepta y la lista real trae seis modelos de imagen; la app ofrece
+  `gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image` y `gemini-3-pro-image`
+  (los provisionales se descartan porque ya existen los estables).
+- Las llamadas desde el navegador funcionan: Google permite el origen cruzado.
+- **Generar una imagen no se pudo probar:** la clave era del plan gratuito, y
+  Google responde 429 con `free_tier … limit: 0` para todos los modelos de
+  imagen. No es un límite pasajero: el plan gratuito no incluye imágenes.
+  `motivoDeCuota()` lo distingue de un límite de ritmo y la app lo explica
+  («activa la facturación»). Google comprueba la cuota antes que la forma de la
+  petición, así que el punto incierto de arriba sigue sin resolver hasta probar
+  con un proyecto con facturación.

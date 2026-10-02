@@ -251,7 +251,7 @@ export function crearCompartir({ contenedor, aviso, ia = () => null }) {
         estadoIA.textContent = t('ia.con', { modelo: servicio.modelo });
       } catch (err) {
         estadoIA.classList.add('campo-error');
-        estadoIA.textContent = t({ clave: 'ia.error.clave', red: 'ia.error.red', cuota: 'ia.error.cuota', sinImagen: 'ia.error.sinImagen' }[err?.codigo] ?? 'ia.error.servicio') + (err?.codigo === 'peticion' || err?.codigo === 'servicio' ? ` ${err.message}` : '');
+        estadoIA.textContent = t({ clave: 'ia.error.clave', red: 'ia.error.red', cuota: 'ia.error.cuota', sinPlan: 'ia.error.sinPlan', sinImagen: 'ia.error.sinImagen' }[err?.codigo] ?? 'ia.error.servicio') + (err?.codigo === 'peticion' || err?.codigo === 'servicio' ? ` ${err.message}` : '');
       }
       boton.disabled = false;
       dibujar();

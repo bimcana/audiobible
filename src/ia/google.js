@@ -103,6 +103,13 @@ export function extraerImagen(respuesta) {
   return buscar(respuesta);
 }
 
+// Un 429 puede ser dos cosas muy distintas: que se ha ido demasiado deprisa, o
+// que el plan gratuito de Google no incluye crear imágenes (su límite es 0) y
+// no va a funcionar hasta activar la facturación. Comprobado con una clave real.
+export function motivoDeCuota(mensaje) {
+  return /free_tier/i.test(mensaje) && /limit:\s*0(?!\d)/.test(mensaje) ? 'sinPlan' : 'cuota';
+}
+
 // Las dos formas de pedir una imagen que tiene la API. Se prueba primero la
 // que el modelo declara y, si falla por la forma de la petición, la otra.
 function peticiones(modelo, prompt, proporcion) {
@@ -143,7 +150,7 @@ export async function generarFondo({ clave, modelo, prompt, proporcion }) {
     const mensaje = datos?.error?.message ?? `HTTP ${res.status}`;
 
     if (res.status === 401 || res.status === 403) throw new ErrorDeIA('clave', mensaje);
-    if (res.status === 429) throw new ErrorDeIA('cuota', mensaje);
+    if (res.status === 429) throw new ErrorDeIA(motivoDeCuota(mensaje), mensaje);
     if (res.ok) {
       const imagen = extraerImagen(datos);
       if (imagen) return imagen;
