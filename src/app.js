@@ -14,7 +14,7 @@ import { cargarCatalogo, cargarLibro, olvidarVersion, LibroAusente } from './dat
 import { cargarAjustes, guardarAjustes, cargarPosicion, guardarPosicion } from './almacen/ajustes.js';
 import { t, fijarIdioma } from './i18n/textos.js';
 import {
-  pintarCapitulo, mensajeCarga, palabraEn, iluminar, activarPasaje, mantenerALaVista,
+  pintarCapitulo, mensajeCarga, palabraEn, iluminar, activarPasaje, mantenerALaVista, destellar,
 } from './ui/lector.js';
 import { prepararHoja, abrirHoja, hojaAbierta, el, pastillas } from './ui/hoja.js';
 import { abrirNavegador } from './ui/navegador.js';
@@ -54,6 +54,7 @@ const estado = {
   relojTemporizador: 0,
   dispositivo: false,      // leyendo con la voz del dispositivo
   sonando: false,
+  repetir: false,          // al terminar el capítulo, volver a empezarlo
   cargando: false,         // hay un capítulo pidiéndose
   desplazadoEn: 0,         // última vez que el lector movió la página a mano
 };
@@ -154,6 +155,7 @@ function rotular() {
   leer.setAttribute('aria-label', t(e === 'sonando' ? 'pausar' : e === 'cargando' ? 'cargando' : 'leer'));
   $('btnRepetir').setAttribute('aria-label', t('repetir'));
   $('btnRepetir').title = t('repetir');
+  $('btnRepetir').setAttribute('aria-pressed', String(estado.repetir));
   $('btnAnterior').setAttribute('aria-label', t('anterior'));
   $('btnAnterior').title = t('anterior');
   $('btnSiguiente').setAttribute('aria-label', t('siguiente'));
@@ -162,10 +164,12 @@ function rotular() {
   $('btnTemporizador').title = t('temporizador');
   $('btnTemporizador').setAttribute('aria-pressed', String(estado.temporizador !== null));
   $('btnAjustes').setAttribute('aria-label', t('ajustes'));
-  $('btnBuscar').setAttribute('aria-label', t('bus.titulo'));
-  $('btnBuscar').title = t('bus.titulo');
-  $('btnNotas').setAttribute('aria-label', t('lectura.titulo'));
-  $('btnNotas').title = t('lectura.titulo');
+  $('btnNotas').setAttribute('aria-label', t('notas.titulo'));
+  $('btnNotas').title = t('notas.titulo');
+  const rotulos = { biblia: t('tab.biblia'), planes: t('plan.titulo'), buscar: t('bus.titulo') };
+  for (const b of $('pestanas').children) b.querySelector('span').textContent = rotulos[b.dataset.vista];
+  $('planesTitulo').textContent = t('plan.tituloLargo');
+  $('buscarTitulo').textContent = t('bus.titulo');
   $('btnTexto').setAttribute('aria-label', t('texto'));
   $('btnVoz').setAttribute('aria-label', `${t('voz')}: ${nombreDeVoz()}`);
   $('btnVelocidad').setAttribute('aria-label', `${t('velocidad')}: ${etiquetaVelocidad(estado.ajustes.velocidad)}`);
@@ -293,6 +297,7 @@ async function irA(libro, cap, {
     const v = estado.vista[estado.pasaje];
     const palabra = vers !== null ? v.palabras.find((p) => p.verso >= vers) : v.palabras[0];
     mantenerALaVista(escena, palabra?.el ?? v.el, { forzar: true, instantaneo: true });
+    if (vers !== null) destellar(estado.vista, palabra?.verso ?? vers);
   } else {
     escena.scrollTo({ top: 0, behavior: 'instant' });
   }
@@ -311,7 +316,10 @@ function textoDeUnidad(u) {
 async function siguienteUnidad(u) {
   if (u.tipo === 'anuncio') return { tipo: 'pasaje', libro: u.libro, cap: u.cap, i: 0, pasajes: u.pasajes };
   if (u.i + 1 < u.pasajes.length) return { ...u, i: u.i + 1 };
-  if (!estado.ajustes.continuar || estado.temporizador === 'capitulo') return null;
+  if (estado.temporizador === 'capitulo') return null;
+  // Repetir capítulo: al llegar al final se vuelve a empezar el mismo, sin anuncio.
+  if (estado.repetir) return { ...u, i: 0, vuelta: (u.vuelta ?? 0) + 1 };
+  if (!estado.ajustes.continuar) return null;
   const sig = vecino(u.libro, u.cap, 1);
   if (!sig) return null;
   const pasajes = await modeloDe(estado.version.id, sig.libro, sig.cap);
@@ -332,7 +340,9 @@ function darPorLeido(u) {
 let unidadAnterior = null;
 
 function alCambiarDeUnidad(u) {
-  if (unidadAnterior && (unidadAnterior.libro !== u.libro || unidadAnterior.cap !== u.cap)) darPorLeido(unidadAnterior);
+  const otraVuelta = unidadAnterior && (u.vuelta ?? 0) !== (unidadAnterior.vuelta ?? 0);
+  if (unidadAnterior && (otraVuelta || unidadAnterior.libro !== u.libro || unidadAnterior.cap !== u.cap)) darPorLeido(unidadAnterior);
+  if (otraVuelta) $('escena').scrollTo({ top: 0, behavior: 'smooth' });
   unidadAnterior = u;
   if (u.libro !== estado.libro || u.cap !== estado.cap) {
     mostrar(u.libro, u.cap, u.pasajes);
@@ -377,9 +387,15 @@ const reproductor = crearReproductor({
       if (!v) return;
       const n = palabraEn(v, palabras[i].cs);
       const cambioDeOracion = iluminar(v, n);
+      if (cambioDeOracion) pintarAvance();
+      if (!lectorQuieto()) return;
       if (cambioDeOracion) {
-        pintarAvance();
-        if (lectorQuieto()) mantenerALaVista($('escena'), v.palabras[n]?.el);
+        // Se mira hasta dónde llega la oración que empieza, no solo dónde empieza.
+        let fin = n;
+        while (fin + 1 < v.palabras.length && v.palabras[fin + 1].k === v.palabras[n].k) fin++;
+        mantenerALaVista($('escena'), v.palabras[n]?.el, { hasta: v.palabras[fin]?.el });
+      } else {
+        mantenerALaVista($('escena'), v.palabras[n]?.el);      // solo actúa si la voz llegó al límite
       }
     },
 
@@ -452,9 +468,14 @@ function alternarLectura() {
   leerDesde(estado.pasaje);
 }
 
-function repetirCapitulo() {
-  $('escena').scrollTo({ top: 0, behavior: 'instant' });
-  leerDesde(0);
+// No interrumpe la lectura: solo decide qué pasa al llegar al final del capítulo.
+function alternarRepeticion() {
+  estado.repetir = !estado.repetir;
+  rotular();
+  aviso(t(estado.repetir ? 'repetir.activado' : 'repetir.desactivado', { capitulo: tituloCapitulo(estado.libro, estado.cap, estado.ajustes.idioma) }), 3200);
+  // Lo que ya estaba precargado como «lo siguiente» deja de valer.
+  reproductor.olvidarRelevo();
+  reproductor.rehacerRelevo();
 }
 
 function saltarCapitulo(paso) {
@@ -690,7 +711,7 @@ async function cambiarVersion(id) {
 
 /* ---------- estudio ---------- */
 
-const estudio = crearEstudio({ estado, irA: (libro, cap, o) => irA(libro, cap, o), aviso, cargarLibro });
+const estudio = crearEstudio({ estado, irA: (libro, cap, o) => irDesdeFuera(libro, cap, o), aviso, cargarLibro });
 
 async function cambiarComparacion(id) {
   cambiarAjustes({ comparar: id });
@@ -700,20 +721,33 @@ async function cambiarComparacion(id) {
   rotular();
 }
 
-let pestanaLectura = 'planes';
+/* ---------- pestañas: Biblia, Planes, Buscar ---------- */
 
-async function abrirMiLectura(pestana = pestanaLectura) {
-  pestanaLectura = pestana;
-  const cuerpo = pestana === 'planes'
-    ? cuerpoPlanes({ idioma: estado.ajustes.idioma, irA: (libro, cap) => irA(libro, cap), aviso })
-    : await estudio.cuerpoNotas();
-  abrirHoja({
-    titulo: t('lectura.titulo'),
-    contenido: el('div', {},
-      pastillas([['planes', t('plan.titulo')], ['notas', t('notas.titulo')]], pestana, abrirMiLectura),
-      el('div', { class: 'aire' }),
-      cuerpo),
-  });
+let vistaActual = 'biblia';
+
+function irAVista(vista) {
+  vistaActual = vista;
+  for (const id of ['biblia', 'planes', 'buscar']) {
+    $(`vista${id[0].toUpperCase()}${id.slice(1)}`).hidden = id !== vista;
+  }
+  for (const b of $('pestanas').children) {
+    if (b.dataset.vista === vista) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  }
+  estudio.limpiar();
+  if (vista === 'planes') {
+    $('planesCuerpo').replaceChildren(cuerpoPlanes({ idioma: estado.ajustes.idioma, irA: irDesdeFuera, aviso }));
+  }
+  if (vista === 'buscar') estudio.montarBusqueda($('buscarCuerpo'));
+}
+
+// Abrir un pasaje desde Planes o Buscar: se vuelve a la Biblia.
+function irDesdeFuera(libro, cap, opciones = {}) {
+  irAVista('biblia');
+  return irA(libro, cap, opciones);
+}
+
+async function abrirNotas() {
+  abrirHoja({ titulo: t('notas.titulo'), contenido: await estudio.cuerpoNotas() });
 }
 
 /* ---------- versiones propias ---------- */
@@ -755,7 +789,7 @@ function conectar() {
   prepararHoja({ cerrar: t('cerrar'), volver: t('volver') });
 
   $('btnLeer').addEventListener('click', alternarLectura);
-  $('btnRepetir').addEventListener('click', repetirCapitulo);
+  $('btnRepetir').addEventListener('click', alternarRepeticion);
   $('btnAnterior').addEventListener('click', () => saltarCapitulo(-1));
   $('btnSiguiente').addEventListener('click', () => saltarCapitulo(1));
 
@@ -767,8 +801,8 @@ function conectar() {
   }));
 
   $('btnVersion').addEventListener('click', verVersiones);
-  $('btnBuscar').addEventListener('click', estudio.abrirBusqueda);
-  $('btnNotas').addEventListener('click', () => abrirMiLectura());
+  $('btnNotas').addEventListener('click', abrirNotas);
+  for (const b of $('pestanas').children) b.addEventListener('click', () => irAVista(b.dataset.vista));
   estudio.conectar($('capitulo'));
 
   $('btnVoz').addEventListener('click', () => abrirVoces({
@@ -838,7 +872,7 @@ function conectar() {
     else if (e.key === 'ArrowLeft' && e.shiftKey) saltarCapitulo(-1);
     else if (e.key === 'ArrowRight' && estado.pasaje + 1 < estado.pasajes.length) irAlPasaje(estado.pasaje + 1);
     else if (e.key === 'ArrowLeft' && estado.pasaje > 0) irAlPasaje(estado.pasaje - 1);
-    else if (e.key.toLowerCase() === 'r') repetirCapitulo();
+    else if (e.key.toLowerCase() === 'r') alternarRepeticion();
   });
 
   if ('mediaSession' in navigator) {
@@ -911,7 +945,12 @@ async function arrancar() {
   estado.version = buscar(enlace?.version) ?? buscar(guardada?.version) ?? buscar(porDefecto) ?? estado.catalogo[0];
 
   const destino = enlace ?? (guardada && datosLibro(guardada.libro) ? guardada : { libro: 'JHN', cap: 1 });
-  await irA(destino.libro, destino.cap, { pasaje: enlace ? 0 : destino.pasaje ?? 0, leer: false });
+  // El enlace de la barra de direcciones es el del último capítulo abierto: si
+  // coincide con lo guardado, se vuelve al pasaje exacto y no al principio.
+  const mismoSitio = guardada && destino.libro === guardada.libro && destino.cap === guardada.cap;
+  await irA(destino.libro, destino.cap, { pasaje: mismoSitio ? guardada.pasaje ?? 0 : 0, leer: false });
+  // Idioma, versión y apariencia quedan guardados desde el primer uso.
+  guardarAjustes(estado.ajustes);
   cargarVoces();
   // El service worker deja la app y los textos abiertos disponibles sin conexión.
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

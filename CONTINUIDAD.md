@@ -396,3 +396,47 @@ tipografías están escritos en ese módulo.
 - **Importador:** un solo perfil de PDF. Otros formatos (EPUB, USFM) no.
 - **Versículo a versículo en la comparación**, notas al pie, deuterocanónicos,
   sincronización entre dispositivos y exportación a MP3: fuera de alcance.
+
+---
+
+## 13. Segunda tanda: pestañas, repetición, temario (2026-10-02)
+
+**Tres pestañas: Biblia, Planes y Buscar** (`#pestanas`, `irAVista()` en
+`app.js`). Abajo en el móvil; en pantallas de 900 px o más, un riel a la
+izquierda. Cada pestaña es una `.vista`; solo una está visible. La lectura en
+voz alta sigue sonando al cambiar de pestaña. Abrir un pasaje desde Planes o
+Buscar pasa por `irDesdeFuera()`, que vuelve a la Biblia y señala unos
+instantes el versículo de destino (`destellar()`).
+
+**El muelle del móvil es de una sola fila**, porque debajo van las pestañas.
+El nombre de la voz se oculta y queda solo su icono.
+
+**«Repetir capítulo» es un modo, no un salto.** `estado.repetir` no interrumpe
+la lectura: solo cambia lo que devuelve `siguienteUnidad()` al llegar al final
+del capítulo (vuelve al pasaje 0, sin anuncio, con `vuelta + 1`). Al pulsarlo
+se descarta el relevo ya precargado y se prepara otro. Cada vuelta completa
+cuenta como capítulo leído en los planes.
+
+**El desplazamiento aprovecha la pantalla.** `ANCLA = 0.12` y
+`FRANJA = [0.04, 0.9]` en `ui/lector.js`: la línea que suena baja hasta el
+90 % y entonces el texto vuelve arriba. La primera versión recolocaba solo al
+cambiar de oración mirando dónde empezaba, y una oración larga llegaba al
+100 %, fuera de la pantalla. Ahora se mira dónde **termina** la oración que
+empieza (`hasta`), y hay una comprobación palabra a palabra como red de
+seguridad. Medido en Juan 3 a 2×: entre el 16 % y el 87 %.
+
+**Temario** (`src/datos/temario.js`): 45 temas en cinco categorías, cada uno
+con ocho citas. Son solo referencias, así que sirven para cualquier versión.
+`pruebas/temario.test.mjs` comprueba que todas existen, versículo a versículo,
+en RVG y KJV. Es una selección de pasajes conocidos, sin comentario.
+
+**Idioma, versión y posición se guardan desde el primer uso.** Los ajustes
+solo se escribían al cambiarlos, de modo que el idioma dependía cada vez del
+dispositivo. Y al recargar se volvía al principio del capítulo, porque el
+enlace de la barra de direcciones ganaba a la posición guardada.
+
+**Pendiente conocido:** en la RVG, dentro de las palabras de Jesús quedan
+palabras sin marcar (por ejemplo en Juan 10:10). Viene de la fuente, que
+separa las palabras en cursiva y pierde la marca en ellas.
+
+**Iconos:** `python herramientas/iconos.py` genera las opciones en `iconos/`.

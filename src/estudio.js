@@ -11,6 +11,7 @@ import { LIBROS, libro as datosLibro } from './referencia/canon.js';
 import { nombreLibro, tituloCapitulo } from './referencia/nombres.js';
 import { analizarReferencia } from './referencia/analizar.js';
 import { construirIndice, buscar, resaltar } from './datos/busqueda.js';
+import { TEMARIO, leerCita } from './datos/temario.js';
 import {
   COLORES, leerMarcas, marcar, todasLasMarcas, exportarMarcas, importarMarcas,
 } from './almacen/marcas.js';
@@ -268,28 +269,78 @@ export function crearEstudio(ctx) {
   };
   const MAXIMO = 200;
 
-  function abrirBusqueda() {
+  // La pestaña Buscar. Con el campo vacío muestra el temario; al escribir,
+  // los resultados. Se monta una vez por versión y conserva lo escrito.
+  let montada = { version: null, contenedor: null };
+
+  function montarBusqueda(contenedor) {
     const version = estado.version;
+    if (montada.version === version.id && montada.contenedor === contenedor && contenedor.childElementCount) return;
+    montada = { version: version.id, contenedor };
+
     let ambito = 'todo';
     let turno = 0;
     const campo = el('input', {
       class: 'campo', type: 'search', placeholder: t('bus.campo'), 'aria-label': t('bus.campo'),
       autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'search',
     });
-    const estadoBusqueda = el('p', { class: 'nota', role: 'status', text: t('bus.ayuda', { version: version.sigla }) });
+    const estadoBusqueda = el('p', { class: 'nota', role: 'status' });
     const resultados = el('div', { class: 'resultados' });
+    const filtro = pastillas([['todo', t('bus.todo')], ['at', t('nav.at')], ['nt', t('nav.nt')]], ambito, (x) => { ambito = x; ejecutar(); });
+    const temario = el('div', { class: 'temario' });
+
+    const ir = (libro, cap, vers) => ctx.irA(libro, cap, { vers });
+
+    /* ----- temario ----- */
+
+    function pintarTemario() {
+      temario.replaceChildren(el('p', { class: 'nota', text: t('tema.intro') }));
+      for (const categoria of TEMARIO) {
+        temario.append(el('h3', { text: categoria.nombre[idioma()] ?? categoria.nombre.es }));
+        const grupo = el('div', { class: 'pastillas temas' });
+        for (const tema of categoria.temas) {
+          grupo.append(el('button', { type: 'button', text: tema.nombre[idioma()] ?? tema.nombre.es, onclick: () => pintarTema(categoria, tema) }));
+        }
+        temario.append(grupo);
+      }
+    }
+
+    function pintarTema(categoria, tema) {
+      const lista = el('div', { class: 'lista citas' });
+      for (const cita of tema.citas) {
+        const d = leerCita(cita);
+        const versos = new Set(Array.from({ length: d.hasta - d.vers + 1 }, (_, i) => d.vers + i));
+        const texto = el('p', { class: 'cita-texto', text: '…' });
+        texto.lang = version.idioma;
+        lista.append(el('button', { type: 'button', class: 'opcion sola cita-tema', 'aria-label': `${referencia(d.libro, d.cap, versos)}. ${t('tema.leer')}`, onclick: () => ir(d.libro, d.cap, d.vers) },
+          el('span', {}, texto, el('strong', { text: `${referencia(d.libro, d.cap, versos)} · ${version.sigla}` }))));
+        textoDelDestino(version.id, d).then((x) => { texto.textContent = x || t('est.noEsta'); }).catch(() => { texto.textContent = t('est.noEsta'); });
+      }
+      const volver = el('button', { type: 'button', class: 'enlace volver', text: `← ${t('tema.volver')}`, onclick: () => { pintarTemario(); contenedor.closest('.pagina-cuerpo')?.scrollTo({ top: 0 }); } });
+      temario.replaceChildren(
+        volver,
+        el('p', { class: 'cap-libro', text: categoria.nombre[idioma()] ?? categoria.nombre.es }),
+        el('h2', { class: 'tema-titulo', text: tema.nombre[idioma()] ?? tema.nombre.es }),
+        lista);
+      contenedor.closest('.pagina-cuerpo')?.scrollTo({ top: 0 });
+    }
+
+    /* ----- búsqueda ----- */
 
     async function ejecutar() {
       const consulta = campo.value.trim();
       const mio = ++turno;
       resultados.replaceChildren();
-      if (!consulta) { estadoBusqueda.textContent = t('bus.ayuda', { version: version.sigla }); return; }
+      const vacia = !consulta;
+      temario.hidden = !vacia;
+      filtro.hidden = vacia;
+      if (vacia) { estadoBusqueda.textContent = t('bus.ayuda', { version: version.sigla }); return; }
 
       // Si lo escrito es una referencia, se ofrece ir directamente.
       const ref = analizarReferencia(consulta, idioma());
       if (ref) {
         resultados.append(el('button', {
-          type: 'button', class: 'opcion sola ir', onclick: () => { cerrarHoja(); ctx.irA(ref.libro, ref.cap ?? 1, { vers: ref.vers }); },
+          type: 'button', class: 'opcion sola ir', onclick: () => ir(ref.libro, ref.cap ?? 1, ref.vers),
         }, el('span', {}, el('strong', { text: t('bus.irA', { referencia: referencia(ref.libro, ref.cap ?? 1, ref.vers ? new Set([ref.vers]) : null) }) }))));
       }
 
@@ -315,23 +366,19 @@ export function crearEstudio(ctx) {
         const texto = el('small', {});
         for (const trozo of resaltar(v.texto, r.terminos)) texto.append(trozo.hallado ? el('mark', { text: trozo.texto }) : trozo.texto);
         grupo.append(el('button', {
-          type: 'button', class: 'opcion sola', onclick: () => { cerrarHoja(); ctx.irA(v.libro, v.cap, { vers: v.n }); },
+          type: 'button', class: 'opcion sola', onclick: () => ir(v.libro, v.cap, v.n),
         }, el('span', {}, el('strong', { text: `${v.cap}:${v.n}` }), texto)));
       }
     }
 
     let reloj = 0;
     campo.addEventListener('input', () => { clearTimeout(reloj); reloj = setTimeout(ejecutar, 250); });
-    const filtro = pastillas([['todo', t('bus.todo')], ['at', t('nav.at')], ['nt', t('nav.nt')]], ambito, (a) => { ambito = a; ejecutar(); });
 
-    abrirHoja({
-      titulo: t('bus.titulo'),
-      ancha: true,
-      contenido: el('div', {},
-        el('form', { onsubmit: (e) => { e.preventDefault(); clearTimeout(reloj); ejecutar(); } }, campo),
-        el('div', { class: 'aire' }), filtro, estadoBusqueda, resultados),
-    });
-    campo.focus();
+    pintarTemario();
+    contenedor.replaceChildren(
+      el('form', { class: 'buscador', onsubmit: (e) => { e.preventDefault(); clearTimeout(reloj); campo.blur(); ejecutar(); } }, campo),
+      filtro, estadoBusqueda, resultados, temario);
+    ejecutar();
   }
 
   /* ---------- mis notas ---------- */
@@ -459,5 +506,5 @@ export function crearEstudio(ctx) {
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && seleccion.size && !$('hoja').open) limpiar(); });
 
-  return { conectar, alTocar, refrescar, limpiar, abrirBusqueda, cuerpoNotas };
+  return { conectar, alTocar, refrescar, limpiar, montarBusqueda, cuerpoNotas };
 }

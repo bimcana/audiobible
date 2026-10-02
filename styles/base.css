@@ -75,7 +75,7 @@ body {
   height: 100%;
   margin: 0;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: minmax(0, 1fr) auto;       /* la vista y, debajo, las pestañas */
   background: var(--fondo);
   color: var(--tinta);
   font-family: var(--sans);

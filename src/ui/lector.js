@@ -137,6 +137,13 @@ export function pintarSeleccion(vista, versos) {
   for (const v of vista) for (const p of v.palabras) p.el.classList.toggle('sel', versos.has(p.verso));
 }
 
+// Señala unos instantes el versículo al que se acaba de llegar.
+export function destellar(vista, verso) {
+  const palabras = vista.flatMap((v) => v.palabras.filter((p) => p.verso === verso).map((p) => p.el));
+  for (const el of palabras) el.classList.add('destello');
+  setTimeout(() => { for (const el of palabras) el.classList.remove('destello'); }, 2200);
+}
+
 export function mensajeCarga(raiz, texto) {
   raiz.replaceChildren(crear('p', 'cargando-cap', texto));
 }
@@ -176,17 +183,25 @@ export function activarPasaje(vista, indice) {
   });
 }
 
-/* La línea que suena se ancla a 3/10 de la pantalla. El texto solo se mueve
-   cuando esa línea sale de la franja cómoda, nunca a mitad de oración. */
-const ANCLA = 0.3;
-const FRANJA = [0.08, 0.62];
+/* La lectura recorre casi toda la pantalla: la línea que suena puede bajar
+   hasta el 90 % de la altura antes de que el texto se recoloque, y entonces
+   vuelve arriba, a un 12 %. Así se aprovecha la pantalla entera y el texto se
+   mueve pocas veces, siempre al terminar una oración. */
+const ANCLA = 0.12;
+const FRANJA = [0.04, 0.9];
 
-export function mantenerALaVista(escena, el, { forzar = false, instantaneo = false } = {}) {
+// hasta: último elemento de lo que se va a leer a continuación (el final de la
+// oración). Si no cabe por encima del límite, el texto se recoloca ya, para
+// que la voz no llegue nunca al borde ni se salga de la pantalla.
+export function mantenerALaVista(escena, el, { forzar = false, instantaneo = false, hasta = null } = {}) {
   if (!el) return;
   const zona = escena.getBoundingClientRect();
   const linea = el.getBoundingClientRect();
   const posicion = (linea.top - zona.top) / zona.height;
-  if (!forzar && posicion >= FRANJA[0] && posicion <= FRANJA[1]) return;
+  const fondo = hasta ? (hasta.getBoundingClientRect().bottom - zona.top) / zona.height : posicion;
+  // Una oración más alta que la franja no cabe de ningún modo: se espera a que la voz llegue al límite.
+  const cabe = fondo <= FRANJA[1] || fondo - posicion > FRANJA[1] - ANCLA;
+  if (!forzar && posicion >= FRANJA[0] && posicion <= FRANJA[1] && cabe) return;
   const destino = escena.scrollTop + (linea.top - zona.top) - zona.height * ANCLA;
   escena.scrollTo({ top: Math.max(0, destino), behavior: instantaneo ? 'instant' : 'smooth' });
 }

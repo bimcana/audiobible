@@ -47,7 +47,6 @@
 #muelle {
   background: var(--fondo);
   border-top: 1px solid var(--linea);
-  padding-bottom: env(safe-area-inset-bottom);
   transition: background-color .3s;
 }
 
@@ -107,12 +106,15 @@
 .ficha .aa { font-family: var(--serif); font-size: 1.05rem; }
 #btnVelocidad { font-variant-numeric: tabular-nums; }
 
+/* En el móvil todo cabe en una fila: debajo van las pestañas y la altura cuenta. */
 @media (max-width: 640px) {
-  .muelle-fila { grid-template-columns: 1fr 1fr; grid-template-areas: 'transporte transporte' 'izq der'; row-gap: .1rem; padding: .5rem .5rem .35rem; }
-  .transporte { grid-area: transporte; justify-content: center; }
-  .muelle-lado { grid-area: izq; }
-  .muelle-lado.fin { grid-area: der; }
-  .leer { width: 3.75rem; height: 3.75rem; margin: 0 .6rem; }
+  .muelle-fila { gap: 0; padding: .35rem .3rem; }
+  .muelle-lado { gap: 0; }
+  #muelle .icono { width: 2.4rem; height: 2.6rem; }
+  #muelle .ficha { padding: 0 .4rem; min-width: 2.2rem; justify-content: center; font-size: .78rem; }
+  #vozNombre { display: none; }
+  .transporte { gap: 0; }
+  .leer { width: 3.1rem; height: 3.1rem; margin: 0 .2rem; }
 }
 
 /* --- hoja (panel modal) --- */
@@ -368,7 +370,7 @@ input[type='range'] {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(7.5rem + env(safe-area-inset-bottom));
+  bottom: calc(8.6rem + env(safe-area-inset-bottom));
   width: fit-content;
   margin: 0 auto;
   max-width: min(30rem, calc(100vw - 2rem));
@@ -450,7 +452,7 @@ input[type='range'] {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(6.6rem + env(safe-area-inset-bottom));
+  bottom: calc(8.2rem + env(safe-area-inset-bottom));
   width: fit-content;
   max-width: calc(100vw - 1.5rem);
   margin: 0 auto;
@@ -541,3 +543,85 @@ mark { background: var(--m-amarillo); color: inherit; border-radius: 3px; paddin
 .licencia strong { font-family: var(--serif); font-size: 1.02rem; }
 .aviso-legal { margin: .4rem 0 0; font-size: .82rem; line-height: 1.5; }
 .hoja a { color: var(--rubrica); }
+
+/* --- vistas y pestañas --- */
+
+.vista { min-height: 0; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+
+#pestanas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--linea);
+  background: var(--fondo);
+  padding-bottom: env(safe-area-inset-bottom);
+  transition: background-color .3s;
+}
+#pestanas button {
+  display: grid;
+  justify-items: center;
+  gap: .12rem;
+  padding: .45rem .25rem .4rem;
+  font-size: .7rem;
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--tinta-2);
+  transition: color .15s;
+}
+#pestanas button:hover { color: var(--tinta); }
+#pestanas button[aria-current='page'] { color: var(--rubrica); }
+#pestanas button[aria-current='page'] svg { stroke-width: 2.1; }
+
+/* Leyendo sin tocar nada, las pestañas se retiran con la barra superior. */
+.leyendo.recogido #pestanas { display: none; }
+.leyendo.recogido #muelle { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Planes y Buscar: páginas con su título. */
+.pagina-cima { padding: max(.9rem, env(safe-area-inset-top)) 1.25rem .5rem; }
+.pagina-cima h1 { margin: 0 auto; max-width: 40rem; font-family: var(--serif); font-size: 1.55rem; font-weight: 700; letter-spacing: -.01em; }
+.pagina-cuerpo { overflow-y: auto; overscroll-behavior: contain; padding: .5rem 1.25rem 3rem; }
+.pagina-columna { max-width: 40rem; margin: 0 auto; }
+@media (min-width: 900px) { .pagina-cima { padding-top: 2rem; } }
+
+.pagina h3 {
+  margin: 1.6rem 0 .6rem;
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.pagina h4 { margin: 1rem 0 .2rem .2rem; font-family: var(--serif); font-size: .85rem; font-style: italic; font-weight: 400; color: var(--tinta-2); }
+.pagina a { color: var(--rubrica); }
+.pagina details { margin-top: .5rem; font-size: .82rem; color: var(--tinta-2); }
+.pagina summary { cursor: pointer; padding: .35rem 0; }
+.pagina .plan > h3 { font-family: var(--serif); font-size: 1.15rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--tinta); }
+
+/* En pantallas anchas las pestañas pasan a un riel a la izquierda. */
+@media (min-width: 900px) {
+  body { grid-template-rows: minmax(0, 1fr); grid-template-columns: auto minmax(0, 1fr); }
+  #pestanas { grid-row: 1; grid-column: 1; grid-template-columns: none; align-content: start; gap: .3rem; padding: 1rem .45rem; border-top: 0; border-right: 1px solid var(--linea); }
+  #pestanas button { padding: .7rem .55rem; border-radius: 12px; }
+  #pestanas button:hover { background: color-mix(in srgb, var(--tinta) 6%, transparent); }
+  .vista { grid-row: 1; grid-column: 2; }
+  .leyendo.recogido #pestanas { display: grid; opacity: .35; }
+  #aviso { bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+  #menuVerso { bottom: calc(5.2rem + env(safe-area-inset-bottom)); }
+}
+
+/* --- buscar y temario --- */
+
+.buscador { position: sticky; top: -.5rem; z-index: 2; padding: .5rem 0; background: var(--fondo); }
+.buscador + .pastillas { margin-top: .3rem; }
+.pastillas.temas button { font-family: var(--serif); font-size: .98rem; color: var(--tinta); }
+.tema-titulo { margin: .1rem 0 1rem; font-family: var(--serif); font-size: 1.6rem; font-weight: 700; line-height: 1.15; text-wrap: balance; }
+.temario .cap-libro { margin: 1rem 0 .3rem; font-size: .7rem; }
+.volver { margin-top: 0; text-decoration: none; }
+.citas { gap: .4rem; }
+.cita-tema { padding: .9rem 1rem; border: 1px solid var(--linea); border-radius: 12px; }
+.cita-texto { margin: 0 0 .5rem; font-family: var(--serif); font-size: 1.08rem; line-height: 1.5; color: var(--tinta); }
+.cita-tema strong { font-family: var(--sans); font-size: .76rem !important; font-weight: 600; letter-spacing: .06em; color: var(--tinta-2); }
+
+/* Los temas, en dos columnas de renglones: se leen mejor que como pastillas. */
+.pastillas.temas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
+.pastillas.temas button { min-height: 2.9rem; padding: .45rem .8rem; border-radius: 10px; text-align: left; line-height: 1.25; }
+@media (min-width: 720px) { .pastillas.temas { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

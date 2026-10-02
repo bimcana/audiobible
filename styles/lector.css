@@ -242,3 +242,6 @@ p.capitular.suelta {
   .comparando .paralelo { margin: .25em 0 0; }
   .comparando .pasaje:not(.con-paralelo) { max-width: 54%; }
 }
+
+/* El versículo al que se acaba de llegar desde una búsqueda, un tema o una referencia. */
+.w.destello { background: color-mix(in srgb, var(--rubrica) 16%, transparent); box-shadow: -.14em 0 0 color-mix(in srgb, var(--rubrica) 16%, transparent), .14em 0 0 color-mix(in srgb, var(--rubrica) 16%, transparent); }
