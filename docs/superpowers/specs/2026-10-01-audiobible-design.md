@@ -50,8 +50,8 @@ completos. Vías descartadas tras investigarlas:
 
 Vías abiertas:
 
-- **Importador local** (fase 6): cada usuario carga un archivo propio que se
-  queda en su dispositivo.
+- **Importador local** (fase 3, ver §8): cada usuario carga un archivo propio
+  que se queda en su dispositivo.
 - **Cartas de solicitud de permiso** a las editoriales (tarea aparte).
 - **Enlaces de salida**: el selector de versiones ofrece «Leer en bible.com»
   para esas versiones, abriendo el mismo capítulo en su sitio.
@@ -205,19 +205,72 @@ contenido. Interfaz en español e inglés según el dispositivo, cambiable.
   60 días, Evangelios en 30 días. Un capítulo se marca al terminar de leerlo o
   escucharlo. Progreso y racha, sin notificaciones.
 
-## 8. Fases
+## 8. Importador local de Biblias propias
+
+Permite usar una versión que el usuario ya posee sin que la app la distribuya.
+El archivo se procesa en el navegador y el resultado se guarda en IndexedDB con
+el mismo formato de libro de §3; **nada se sube ni se incluye en el
+repositorio**. Una versión importada tiene las mismas funciones que una
+incluida y aparece en el selector bajo «Mis versiones».
+
+**Alcance en la versión 1:** un solo perfil de archivo, el de los PDF de
+`NVI/` (libro electrónico convertido con Calibre). Otros archivos se rechazan
+con un mensaje claro si la validación falla. No se intenta un importador
+universal.
+
+**Flujo.** En el selector de versiones, «Añadir una Biblia propia» → se
+arrastran uno o varios PDF (los cuatro de la NVI de una vez o por separado) →
+progreso por archivo → informe de validación → nombre y sigla de la versión.
+Archivos añadidos después se fusionan en la misma versión.
+
+**Lectura del PDF.** pdf.js, incluido en el repositorio como en Lyrio y cargado
+solo al importar, con `disableNormalization: true` y sus `cmaps` y
+`standard_fonts`.
+
+**Reconocimiento de estructura**, por tamaño relativo al cuerpo del texto (no
+por valores absolutos), medido en los archivos reales:
+
+| Elemento | Señal en el PDF | Destino |
+|---|---|---|
+| Encabezado de capítulo | Tamaño mayor (20,2 frente a 14,4), texto «LIBRO N» | Abre capítulo; el libro se resuelve con la tabla de nombres. «SALMO»/«SALMOS» → Salmos |
+| Número de versículo | Tramo solo de dígitos, tamaño menor (10,8) | Abre versículo |
+| Título de sección | Negrita, versalitas (mezcla 16,6 / 11,6) | Elemento `h` |
+| Pasajes paralelos | Negrita cursiva («1:1–17 — Lc 3:23–38») | Se descarta |
+| Llamada de nota | Tramo menor con forma `[n]` | Se descarta |
+| Asterisco de glosario | `*` pegado al inicio de palabra | Se descarta |
+| Salto de línea dentro de párrafo | Línea que no cierra bloque | Se une con espacio |
+| Portada, índices por libro | Páginas sin encabezado de capítulo | Se ignoran |
+
+**Palabras de Jesús.** En el PDF van en rojo, pero `getTextContent` no entrega
+color. Se intentará obtenerlo de la lista de operadores de la página. Si no
+resulta fiable, la versión importada no las marca; no bloquea la entrega.
+
+**Validación antes de guardar.** 66 libros (o los que traiga el archivo, con
+aviso de los que faltan); número de capítulos de cada libro igual al canónico;
+versículos en orden creciente dentro de cada capítulo, admitiendo huecos (la
+NVI omite algunos versículos); ningún versículo vacío; ningún `[n]` ni `*`
+residual en el texto.
+
+**Privacidad y repositorio.** `NVI/` está en `.gitignore`. El texto importado
+solo sale del dispositivo, pasaje a pasaje, hacia el motor de voz, igual que
+cualquier libro en Lyrio.
+
+## 9. Fases
 
 1. **Textos**: scripts, 10 versiones verificadas, referencias cruzadas.
 2. **Lector y voz**: navegación, versiones, temas, lectura continua, karaoke,
    controles, anuncio de capítulo. Primera publicación.
-3. **Sin conexión**: PWA, caché de audio, descarga por capítulo, almacenamiento.
-4. **Estudio**: búsqueda, comparación, subrayados, notas, marcadores,
+3. **Importador local**, verificado con los cuatro PDF de `NVI/`.
+4. **Sin conexión**: PWA, caché de audio, descarga por capítulo, almacenamiento.
+5. **Estudio**: búsqueda, comparación, subrayados, notas, marcadores,
    referencias cruzadas.
-5. **Planes, inglés y licencias**. Versión 1 completa.
-6. **Importador local** de Biblias propias, verificado con los PDF de `NVI/`.
-   Tendrá su propia especificación.
+6. **Planes, inglés y licencias**. Versión 1 completa.
 
-## 9. Verificación
+## 10. Verificación
+
+- **Importador**: los cuatro PDF de `NVI/` producen 66 libros y pasan la
+  validación; pasajes de muestra (Juan 3, Salmo 23, Génesis 1) se comparan con
+  la extracción de PyMuPDF como referencia.
 
 - **Textos**: conteos contra la fuente y comparación de pasajes de muestra
   carácter a carácter.
@@ -229,7 +282,7 @@ contenido. Interfaz en español e inglés según el dispositivo, cambiable.
   cada tema.
 - **Sin conexión**: sin red, un capítulo descargado se lee y se escucha.
 
-## 10. Fuera de alcance en la versión 1
+## 11. Fuera de alcance en la versión 1
 
-Notas al pie del traductor · libros deuterocanónicos · sincronización entre
+Importar formatos distintos del perfil de §8 · notas al pie del traductor · libros deuterocanónicos · sincronización entre
 dispositivos · repetición en bucle · exportación a MP3 · traducción automática.
