@@ -1,0 +1,170 @@
+/* La página de lectura: cabecera del capítulo, pasajes y karaoke. */
+
+#escena {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  padding: 0 1.25rem;
+}
+
+#capitulo {
+  max-width: var(--medida);
+  margin: 0 auto;
+  padding: 2.5rem 0 5rem;
+  font-family: var(--lectura);
+  font-size: var(--tamano);
+  line-height: var(--renglon);
+}
+
+/* --- cabecera del capítulo --- */
+
+.cap-libro {
+  margin: 0 0 1.1em;
+  font-family: var(--sans);
+  font-size: .62em;
+  font-weight: 500;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+
+/* El número de capítulo cuelga del primer párrafo, como en las Biblias de lectura. */
+.capitular {
+  float: left;
+  font-family: var(--capitular);
+  font-weight: 500;
+  font-style: normal;
+  font-size: calc(var(--renglon) * 3em);
+  line-height: .74;
+  padding: .06em .12em 0 0;
+  margin-left: -.03em;
+  color: var(--rubrica);
+  font-variant-numeric: lining-nums;
+  user-select: none;
+}
+
+p.capitular.suelta {
+  float: none;
+  margin: 0 0 .12em;
+  padding: 0;
+  font-size: calc(var(--renglon) * 2.4em);
+  line-height: .9;
+}
+
+/* --- pasajes --- */
+
+.pasaje { transition: opacity .35s; }
+.pasaje + .pasaje { margin-top: calc(var(--renglon) * .55em); }
+
+.titulo {
+  margin: 1.9em 0 .55em;
+  font-family: var(--lectura);
+  font-size: .88em;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--tinta-2);
+  text-wrap: balance;
+}
+.pasaje:first-of-type .titulo:first-child { margin-top: 0; }
+
+.texto {
+  margin: 0;
+  text-wrap: pretty;
+  hanging-punctuation: first;
+}
+
+.sobrescrito { font-style: italic; color: var(--tinta-2); font-size: .92em; }
+
+/* Poesía: cada renglón es un bloque con sangría francesa. */
+.renglon {
+  display: block;
+  padding-left: calc(1.4em * var(--sangria, 0) + 1.2em);
+  text-indent: -1.2em;
+}
+.renglon[data-n='0'] { padding-left: 0; text-indent: 0; }
+
+.vn {
+  font-family: var(--sans);
+  font-size: .52em;
+  font-weight: 500;
+  line-height: 0;
+  vertical-align: .72em;
+  margin-right: .28em;
+  color: var(--tinta-2);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+:root[data-numeros='0'] .vn { display: none; }
+
+/* Disposición «un versículo por línea». */
+:root[data-disposicion='versiculos'] .corte { display: block; height: .3em; }
+
+.w { cursor: pointer; border-radius: 3px; transition: color .18s, opacity .18s; }
+:root[data-jesus='1'] .w.j { color: var(--rubrica); }
+.w.d { font-style: italic; }
+
+@media (hover: hover) {
+  .w:hover { background: color-mix(in srgb, var(--tinta) 8%, transparent); }
+}
+
+/* --- karaoke: la tinta sigue a la voz ---
+   Mientras se lee, el texto por decir queda en tinta tenue y cada palabra
+   toma su tinta plena al pronunciarse. La palabra en curso lleva un trazo. */
+
+.leyendo .pasaje:not(.activo) { opacity: .42; }
+.leyendo .pasaje.activo .w { opacity: .5; }
+.leyendo .pasaje.activo .w.dicha { opacity: 1; }
+.leyendo .pasaje.activo .w.ahora {
+  opacity: 1;
+  text-decoration: underline;
+  text-decoration-color: var(--rubrica);
+  text-decoration-thickness: .09em;
+  text-underline-offset: .22em;
+}
+.leyendo .pasaje.activo .vn { opacity: .75; }
+
+/* En pausa, la palabra donde quedó la voz sigue señalada. */
+.pasaje.activo .w.ahora {
+  text-decoration: underline;
+  text-decoration-color: var(--rubrica);
+  text-decoration-thickness: .09em;
+  text-underline-offset: .22em;
+}
+
+/* --- pie del capítulo --- */
+
+.pie-cap {
+  clear: both;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3.5em;
+  padding-top: 1.2em;
+  border-top: 1px solid var(--linea);
+  font-family: var(--sans);
+  font-size: .68em;
+}
+.pie-cap button {
+  display: inline-flex;
+  align-items: center;
+  gap: .4em;
+  min-height: 2.75rem;
+  color: var(--tinta-2);
+  transition: color .15s;
+}
+.pie-cap button:hover { color: var(--tinta); }
+.pie-cap .sig { margin-left: auto; text-align: right; }
+
+.cargando-cap {
+  padding: 30vh 0;
+  text-align: center;
+  font-family: var(--sans);
+  font-size: .72em;
+  color: var(--tinta-2);
+}
+
+@media (max-width: 520px) {
+  #capitulo { padding-top: 1.5rem; }
+  .capitular { font-size: calc(var(--renglon) * 2.9em); }
+}

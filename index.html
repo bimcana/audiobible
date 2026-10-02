@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es" data-tema="papel" data-fuente="clasica" data-ancho="medio" data-interlineado="medio" data-disposicion="parrafos">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AudioBible</title>
+  <meta name="description" content="La Biblia, leída en voz alta con voces naturales y resaltado palabra por palabra. En español e inglés.">
+  <meta name="theme-color" content="#F6F5F1">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;700&family=Cormorant+Garamond:wght@500;600&family=Gentium+Book+Plus:ital,wght@0,400;0,700;1,400&family=Instrument+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/lector.css">
+  <link rel="stylesheet" href="styles/controles.css">
+</head>
+<body>
+
+  <header id="cima">
+    <button id="btnReferencia" class="cima-ref" aria-haspopup="dialog">
+      <span id="refTexto"></span>
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="cima-lado">
+      <button id="btnVersion" class="cima-version" aria-haspopup="dialog"></button>
+      <button id="btnAjustes" class="icono" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="escena" tabindex="-1">
+    <article id="capitulo" aria-live="off"></article>
+  </main>
+
+  <footer id="muelle">
+    <div id="avance" aria-hidden="true"><div id="avanceLleno"></div></div>
+    <div class="muelle-fila">
+      <div class="muelle-lado">
+        <button id="btnVoz" class="ficha" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11v1a7 7 0 0 1-14 0v-1M12 19v2"/></svg>
+          <span id="vozNombre"></span>
+        </button>
+        <button id="btnVelocidad" class="ficha" aria-haspopup="dialog"></button>
+      </div>
+
+      <div class="transporte">
+        <button id="btnRepetir" class="icono">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v4.5h4.5"/></svg>
+        </button>
+        <button id="btnAnterior" class="icono">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 5v14"/><path class="lleno" d="M19 5.5v13L9 12z"/></svg>
+        </button>
+        <button id="btnLeer" class="leer" data-estado="pausa">
+          <svg class="i-leer" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path class="lleno" d="M8 5v14l11-7z"/></svg>
+          <svg class="i-pausar" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path class="lleno" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+          <svg class="i-cargando" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.56"/></svg>
+        </button>
+        <button id="btnSiguiente" class="icono">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M18 5v14"/><path class="lleno" d="M5 5.5v13L15 12z"/></svg>
+        </button>
+        <button id="btnTemporizador" class="icono" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>
+        </button>
+      </div>
+
+      <div class="muelle-lado fin">
+        <button id="btnTexto" class="ficha" aria-haspopup="dialog"><span class="aa">Aa</span></button>
+      </div>
+    </div>
+  </footer>
+
+  <dialog id="hoja" class="hoja" aria-labelledby="hojaTitulo">
+    <header class="hoja-cabeza">
+      <button id="hojaVolver" class="icono" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <h2 id="hojaTitulo"></h2>
+      <button id="hojaCerrar" class="icono">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <div id="hojaCuerpo" class="hoja-cuerpo"></div>
+  </dialog>
+
+  <div id="aviso" role="status" aria-live="polite" hidden></div>
+
+  <noscript><p class="sin-js">AudioBible necesita JavaScript para funcionar. · AudioBible needs JavaScript to work.</p></noscript>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

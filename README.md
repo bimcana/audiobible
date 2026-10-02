@@ -4,8 +4,12 @@ La Biblia leída en voz alta con voces neuronales y resaltado palabra por
 palabra, en español e inglés. App web estática, pública y gratuita, hermana de
 [Lyrio](https://github.com/bimcana/Lyrio).
 
-**Estado:** fase 1 de 6 terminada (textos). La app todavía no existe; lo que
-hay son los datos verificados que cargará.
+**Estado:** fases 1 y 2 de 6 terminadas. La app abre cualquier capítulo de las
+diez versiones y lo lee en voz alta con karaoke. Faltan: importador de Biblias
+propias, uso sin conexión, herramientas de estudio y planes de lectura.
+
+Para verla en local: `python -m http.server 8095` y abrir
+`http://localhost:8095`.
 
 ## Carpetas
 

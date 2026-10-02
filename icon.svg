@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#1C1B18"/>
+  <!-- La capitular en rojo de rúbrica y los renglones: tinta plena donde la voz ya pasó. -->
+  <rect x="112" y="128" width="104" height="124" rx="14" fill="#C8392D"/>
+  <g stroke-linecap="round" stroke-width="30" fill="none">
+    <path d="M262 146h138" stroke="#F6F5F1"/>
+    <path d="M262 234h138" stroke="#F6F5F1"/>
+    <path d="M127 322h150" stroke="#F6F5F1"/>
+    <path d="M277 322h123" stroke="#F6F5F1" stroke-opacity=".34"/>
+    <path d="M127 392h196" stroke="#F6F5F1" stroke-opacity=".34"/>
+  </g>
+  <path d="M127 352h150" stroke="#C8392D" stroke-width="9" stroke-linecap="round"/>
+</svg>
