@@ -563,3 +563,20 @@ la cabecera `x-goog-api-key`. El uso se factura a la cuenta del lector.
   («activa la facturación»). Google comprueba la cuota antes que la forma de la
   petición, así que el punto incierto de arriba sigue sin resolver hasta probar
   con un proyecto con facturación.
+
+---
+
+## 17. Dos idiomas distintos: el de la app y el de los libros (2026-10-02)
+
+- **El idioma de la app** (menús, botones, avisos) se elige en Ajustes, primera
+  sección, y se guarda. Es `estado.ajustes.idioma`.
+- **Los nombres de los libros siguen a la versión que se lee**, no a la app:
+  con la KJV es «John 3» aunque los menús estén en español; con la RVG es
+  «Juan 3» aunque estén en inglés. Es `idiomaTexto()` en `app.js` y
+  `deLibros()` en `estudio.js`. Vale para la barra superior, la cabecera, el
+  pie del capítulo, «Ir a», los recientes, los planes, la búsqueda, las
+  referencias cruzadas, el versículo del día y las imágenes de Compartir.
+
+Al cambiar el idioma de la app, `alCambiarDeIdioma()` rehace todo lo que tiene
+rótulos: la hoja de Ajustes se reabre en el idioma nuevo y las pestañas
+Buscar y Compartir se vuelven a montar. El temario sigue al idioma de la app.

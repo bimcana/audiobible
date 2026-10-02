@@ -40,9 +40,11 @@ export function crearEstudio(ctx) {
   let palabra = null;                 // la palabra sobre la que se mantuvo el dedo
   let marcas = {};
   const idioma = () => estado.ajustes.idioma;
+  // Los nombres de los libros van en el idioma de la versión que se lee.
+  const deLibros = () => estado.version?.idioma ?? estado.ajustes.idioma;
 
   const referencia = (libro, cap, versos) => {
-    const base = tituloCapitulo(libro, cap, idioma());
+    const base = tituloCapitulo(libro, cap, deLibros());
     const rango = versos && versos.size ? rangoDe(versos) : '';
     if (!rango) return base;
     return datosLibro(libro).caps === 1 ? `${base} ${rango}` : `${base}:${rango}`;
@@ -287,8 +289,8 @@ export function crearEstudio(ctx) {
 
   function montarBusqueda(contenedor) {
     const version = estado.version;
-    if (montada.version === version.id && montada.contenedor === contenedor && contenedor.childElementCount) return;
-    montada = { version: version.id, contenedor };
+    if (montada.version === version.id && montada.idioma === idioma() && montada.contenedor === contenedor && contenedor.childElementCount) return;
+    montada = { version: version.id, idioma: idioma(), contenedor };
 
     let ambito = 'todo';
     let turno = 0;
@@ -349,7 +351,7 @@ export function crearEstudio(ctx) {
       if (vacia) { estadoBusqueda.textContent = t('bus.ayuda', { version: version.sigla }); return; }
 
       // Si lo escrito es una referencia, se ofrece ir directamente.
-      const ref = analizarReferencia(consulta, idioma());
+      const ref = analizarReferencia(consulta, deLibros());
       if (ref) {
         resultados.append(el('button', {
           type: 'button', class: 'opcion sola ir', onclick: () => ir(ref.libro, ref.cap ?? 1, ref.vers),
@@ -371,7 +373,7 @@ export function crearEstudio(ctx) {
       for (const v of r.resultados) {
         if (v.libro !== libroActual) {
           libroActual = v.libro;
-          resultados.append(el('h3', { text: nombreLibro(v.libro, idioma()) }));
+          resultados.append(el('h3', { text: nombreLibro(v.libro, deLibros()) }));
           grupo = el('div', { class: 'lista' });
           resultados.append(grupo);
         }
@@ -519,7 +521,7 @@ export function crearEstudio(ctx) {
     for (const v of r.resultados) {
       if (v.libro !== libroActual) {
         libroActual = v.libro;
-        apariciones.append(el('h4', { text: nombreLibro(v.libro, idioma()) }));
+        apariciones.append(el('h4', { text: nombreLibro(v.libro, deLibros()) }));
         grupo = el('div', { class: 'lista' });
         apariciones.append(grupo);
       }
@@ -590,5 +592,7 @@ export function crearEstudio(ctx) {
 
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && seleccion.size && !$('hoja').open) limpiar(); });
 
-  return { conectar, alTocar, refrescar, limpiar, montarBusqueda, cuerpoNotas, referencia, textoDelDestino };
+  const olvidarBusqueda = () => { montada = { version: null, contenedor: null }; };
+
+  return { conectar, alTocar, refrescar, limpiar, montarBusqueda, olvidarBusqueda, cuerpoNotas, referencia, textoDelDestino };
 }

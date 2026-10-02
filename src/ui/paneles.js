@@ -285,10 +285,11 @@ function seccionPrivada({ desbloquear, alDesbloquear }) {
 export function abrirAjustes({ ajustes, cambiar, alGuardarMotor, almacen, alVerLicencias, privada, ia }) {
   const campo = el('input', { class: 'campo', type: 'url', value: ajustes.motor, 'aria-label': t('aj.motor'), autocomplete: 'off', spellcheck: 'false' });
   const cuerpo = el('div', {},
-    el('h3', { text: t('aj.lectura') }),
-    interruptor(t('aj.continuar'), t('aj.continuarNota'), ajustes.continuar, (continuar) => cambiar({ continuar })),
     el('h3', { text: t('aj.idioma') }),
     pastillas([['es', 'Español'], ['en', 'English']], ajustes.idioma, (idioma) => cambiar({ idioma })),
+    el('p', { class: 'nota', text: t('aj.idiomaNota') }),
+    el('h3', { text: t('aj.lectura') }),
+    interruptor(t('aj.continuar'), t('aj.continuarNota'), ajustes.continuar, (continuar) => cambiar({ continuar })),
     el('h3', { text: t('priv.titulo') }),
     el('p', { class: 'nota', text: t('priv.nota') }),
     el('div', { class: 'aire' }),

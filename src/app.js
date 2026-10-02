@@ -16,7 +16,7 @@ import { t, fijarIdioma } from './i18n/textos.js';
 import {
   pintarCapitulo, mensajeCarga, palabraEn, iluminar, activarPasaje, mantenerALaVista, destellar,
 } from './ui/lector.js';
-import { prepararHoja, abrirHoja, cerrarHoja, hojaAbierta, el } from './ui/hoja.js';
+import { prepararHoja, prepararRotulosDeHoja, abrirHoja, cerrarHoja, hojaAbierta, el } from './ui/hoja.js';
 import { abrirNavegador } from './ui/navegador.js';
 import { abrirVersiones } from './ui/versiones.js';
 import { abrirImportador, abrirGestion } from './ui/importar.js';
@@ -68,6 +68,9 @@ const motor = crearMotor({ url: estado.ajustes.motor });
 
 /* ---------- utilidades ---------- */
 
+// El idioma de la versión que se lee. Los nombres de los libros lo siguen a
+// él y no al de la interfaz: con la KJV se lee «John 3» aunque los menús estén
+// en español.
 const idiomaTexto = () => estado.version?.idioma ?? estado.ajustes.idioma;
 const vozActual = () => (idiomaTexto() === 'en' ? estado.ajustes.vozEn : estado.ajustes.vozEs);
 const reparto = () => repartoVelocidad(estado.ajustes.velocidad);
@@ -182,10 +185,10 @@ function rotular() {
   $('vozNombre').textContent = nombreDeVoz();
   $('btnVelocidad').textContent = etiquetaVelocidad(estado.ajustes.velocidad);
   if (estado.version) {
-    $('refTexto').textContent = tituloCapitulo(estado.libro, estado.cap, estado.ajustes.idioma);
+    $('refTexto').textContent = tituloCapitulo(estado.libro, estado.cap, idiomaTexto());
     $('btnVersion').textContent = versionParalela() ? `${estado.version.sigla} · ${versionParalela().sigla}` : estado.version.sigla;
     $('btnVersion').setAttribute('aria-label', `${t('ver.titulo')}: ${estado.version.nombre}`);
-    document.title = `${tituloCapitulo(estado.libro, estado.cap, estado.ajustes.idioma)} · ${estado.version.sigla} · AudioBible`;
+    document.title = `${tituloCapitulo(estado.libro, estado.cap, idiomaTexto())} · ${estado.version.sigla} · AudioBible`;
   }
 }
 
@@ -199,13 +202,25 @@ function cambiarAjustes(parche) {
   Object.assign(estado.ajustes, parche);
   guardarAjustes(estado.ajustes);
   aplicarAjustes();
-  if (antes.idioma !== estado.ajustes.idioma) { rotular(); pintar(); }
+  if (antes.idioma !== estado.ajustes.idioma) alCambiarDeIdioma();
+}
+
+function alCambiarDeIdioma() {
+  prepararRotulosDeHoja({ cerrar: t('cerrar'), volver: t('volver') });
+  rotular();
+  pintar();
+  pintarDelDia();
+  // Las pestañas montadas se rehacen en el idioma nuevo la próxima vez que se abran.
+  tallerCreado = null;
+  $('compartirCuerpo').replaceChildren();
+  estudio.olvidarBusqueda();
+  if (vistaActual !== 'biblia') irAVista(vistaActual);
 }
 
 /* ---------- pintar el capítulo ---------- */
 
 function pieDeCapitulo() {
-  const idioma = estado.ajustes.idioma;
+  const idioma = idiomaTexto();
   const antes = vecino(estado.libro, estado.cap, -1);
   const despues = vecino(estado.libro, estado.cap, 1);
   const pie = el('nav', { class: 'pie-cap', 'aria-label': t('fin.capitulo') });
@@ -219,7 +234,7 @@ function pieDeCapitulo() {
 }
 
 function pintar() {
-  const idioma = estado.ajustes.idioma;
+  const idioma = idiomaTexto();
   const unSoloCapitulo = datosLibro(estado.libro).caps === 1;
   estado.vista = pintarCapitulo($('capitulo'), {
     nombreLibro: nombreLibro(estado.libro, idioma),
@@ -282,7 +297,7 @@ async function irA(libro, cap, {
     if (mia !== peticion) return;
     estado.cargando = false;
     aviso(err instanceof LibroAusente
-      ? t('aviso.libroAusente', { libro: nombreLibro(libro, estado.ajustes.idioma), version: version.nombre })
+      ? t('aviso.libroAusente', { libro: nombreLibro(libro, idiomaTexto()), version: version.nombre })
       : t('aviso.cargaLibro'));
     if (estado.pasajes.length) pintar();
     return;
@@ -481,7 +496,7 @@ function alternarLectura() {
 function alternarRepeticion() {
   estado.repetir = !estado.repetir;
   rotular();
-  aviso(t(estado.repetir ? 'repetir.activado' : 'repetir.desactivado', { capitulo: tituloCapitulo(estado.libro, estado.cap, estado.ajustes.idioma) }), 3200);
+  aviso(t(estado.repetir ? 'repetir.activado' : 'repetir.desactivado', { capitulo: tituloCapitulo(estado.libro, estado.cap, idiomaTexto()) }), 3200);
   // Lo que ya estaba precargado como «lo siguiente» deja de valer.
   reproductor.olvidarRelevo();
   reproductor.rehacerRelevo();
@@ -557,7 +572,7 @@ async function alternarDescarga() {
   const grupo = grupoDescarga();
   const { libro, cap } = estado;
   const version = estado.version.id;
-  const titulo = tituloCapitulo(libro, cap, estado.ajustes.idioma);
+  const titulo = tituloCapitulo(libro, cap, idiomaTexto());
   const modo = botonDescarga.dataset.estado;
 
   if (modo === 'bajando') { descargas.cancelar(grupo); return; }
@@ -598,7 +613,7 @@ async function capitulosConAudio(libro) {
 
 const nombreDeGrupo = (version, libro) => {
   const v = estado.catalogo.find((x) => x.id === version);
-  return `${nombreLibro(libro, estado.ajustes.idioma) || t('voz.titulo')} · ${v?.sigla ?? version}`;
+  return `${nombreLibro(libro, idiomaTexto()) || t('voz.titulo')} · ${v?.sigla ?? version}`;
 };
 
 /* ---------- respaldo: voz del dispositivo ---------- */
@@ -661,7 +676,7 @@ function soltarPantalla() {
 function sesionDeMedios() {
   if (!('mediaSession' in navigator)) return;
   navigator.mediaSession.metadata = new MediaMetadata({
-    title: tituloCapitulo(estado.libro, estado.cap, estado.ajustes.idioma),
+    title: tituloCapitulo(estado.libro, estado.cap, idiomaTexto()),
     artist: estado.version.nombre,
     album: 'AudioBible',
     artwork: [{ src: 'icon-512.png', sizes: '512x512', type: 'image/png' }],
@@ -744,7 +759,7 @@ function irAVista(vista) {
   }
   estudio.limpiar();
   if (vista === 'planes') {
-    $('planesCuerpo').replaceChildren(cuerpoPlanes({ idioma: estado.ajustes.idioma, irA: irDesdeFuera, aviso }));
+    $('planesCuerpo').replaceChildren(cuerpoPlanes({ idioma: idiomaTexto(), irA: irDesdeFuera, aviso }));
   }
   if (vista === 'buscar') estudio.montarBusqueda($('buscarCuerpo'));
   // Sin nada elegido, Compartir empieza con el versículo del día.
@@ -891,7 +906,7 @@ function conectar() {
   $('btnSiguiente').addEventListener('click', () => saltarCapitulo(1));
 
   $('btnReferencia').addEventListener('click', () => abrirNavegador({
-    idioma: estado.ajustes.idioma,
+    idioma: idiomaTexto(),
     actual: { libro: estado.libro, cap: estado.cap },
     alIr: (libro, cap, vers) => irA(libro, cap, { vers }),
     guardados: capitulosConAudio,
@@ -926,7 +941,11 @@ function conectar() {
   $('btnTexto').addEventListener('click', () => abrirTexto({ ajustes: estado.ajustes, cambiar: cambiarAjustes }));
   $('btnAjustes').addEventListener('click', () => abrirAjustes({
     ajustes: estado.ajustes,
-    cambiar: cambiarAjustes,
+    cambiar(parche) {
+      const idiomaAntes = estado.ajustes.idioma;
+      cambiarAjustes(parche);
+      if (estado.ajustes.idioma !== idiomaAntes) $('btnAjustes').click();     // la hoja, en el idioma nuevo
+    },
     ia: { listar: listarModelos },
     privada: { desbloquear, alDesbloquear: (ficha) => { cerrarHoja(); alGuardarPropia(ficha); } },
     alVerLicencias: () => abrirLicencias({ catalogo: estado.catalogo, volver: () => $('btnAjustes').click() }),

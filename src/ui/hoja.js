@@ -22,10 +22,14 @@ export function cerrarHoja() {
 
 export const hojaAbierta = () => $('hoja').open;
 
-export function prepararHoja({ cerrar, volver }) {
-  const hoja = $('hoja');
+export function prepararRotulosDeHoja({ cerrar, volver }) {
   $('hojaCerrar').setAttribute('aria-label', cerrar);
   $('hojaVolver').setAttribute('aria-label', volver);
+}
+
+export function prepararHoja(rotulos) {
+  const hoja = $('hoja');
+  prepararRotulosDeHoja(rotulos);
   $('hojaCerrar').addEventListener('click', cerrarHoja);
   $('hojaVolver').addEventListener('click', () => alVolver?.());
   // Un toque en el fondo cierra.
