@@ -19,13 +19,14 @@ function pintarPasaje(pasaje, indice, capitular) {
   const p = crear('p', pasaje.tipo === 'sobrescrito' ? 'texto sobrescrito' : 'texto');
   // En prosa el número cuelga del párrafo; ante la poesía va suelto encima,
   // porque los renglones con sangría no pueden rodearlo.
-  if (capitular && pasaje.lineas.length) seccion.append(crear('p', 'capitular suelta', capitular));
+  const empiezaEnVerso = pasaje.lineas.some((l) => l.c === 0 && l.n > 0);
+  if (capitular && empiezaEnVerso) seccion.append(crear('p', 'capitular suelta', capitular));
   else if (capitular) p.append(crear('span', 'capitular', capitular));
   seccion.append(p);
 
   const oraciones = dividirOraciones(pasaje.texto);
   const lineaEn = new Map(pasaje.lineas.map((l) => [l.c, l.n]));
-  const versoEn = new Map(pasaje.versos.map((v) => [v.cs, v.n]));
+  const versoEn = new Map(pasaje.versos.map((v) => [v.cs, v]));
   const palabras = [];
   let destino = p;                 // el párrafo, o el renglón de poesía abierto
   let k = 0;                       // oración en curso
@@ -49,9 +50,10 @@ function pintarPasaje(pasaje, indice, capitular) {
     else if (!primera) destino.append(' ');
 
     if (versoEn.has(c)) {
-      verso = versoEn.get(c);
+      const v = versoEn.get(c);
+      verso = v.n;
       if (!primera && !lineaEn.has(c)) destino.append(crear('span', 'corte'));
-      destino.append(crear('sup', 'vn', verso));
+      destino.append(crear('sup', 'vn', v.f ? `${v.n}-${v.f}` : v.n));
     }
 
     let clase = 'w';

@@ -384,3 +384,45 @@ input[type='range'] {
   animation: subir .25s var(--suave);
 }
 @media (min-width: 641px) { #aviso { bottom: calc(5.5rem + env(safe-area-inset-bottom)); } }
+
+/* --- importar una Biblia propia --- */
+
+.fila-voz .opcion.con-sigla { grid-template-columns: auto 1fr; }
+.opcion.anadir .sigla { font-size: 1.3rem; font-weight: 400; letter-spacing: 0; text-align: center; color: var(--rubrica); }
+.opcion.peligro strong { color: var(--rubrica); }
+
+.soltar {
+  display: grid;
+  justify-items: center;
+  gap: .35rem;
+  width: 100%;
+  padding: 2rem 1rem;
+  border: 1.5px dashed var(--linea);
+  border-radius: var(--radio);
+  color: var(--tinta-2);
+  transition: border-color .15s, background-color .15s, color .15s;
+}
+.soltar:hover, .soltar.encima { border-color: var(--rubrica); color: var(--tinta); background: color-mix(in srgb, var(--rubrica) 5%, transparent); }
+.soltar strong { font-family: var(--serif); font-size: 1.1rem; color: var(--tinta); }
+.soltar span { font-size: .82rem; }
+
+.progreso { height: 4px; margin-top: 1rem; border-radius: 99px; background: var(--linea); overflow: hidden; }
+.progreso div { height: 100%; width: 0; background: var(--rubrica); transition: width .2s linear; }
+
+.resumen { margin: 0 0 .6rem; font-family: var(--serif); font-size: 1.1rem; line-height: 1.45; }
+
+.hoja details { margin-top: .5rem; font-size: .82rem; color: var(--tinta-2); }
+.hoja summary { cursor: pointer; padding: .35rem 0; }
+.hoja pre {
+  margin: .3rem 0 0;
+  padding: .7rem .8rem;
+  max-height: 11rem;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--fondo);
+  font: .76rem/1.5 ui-monospace, Consolas, monospace;
+  white-space: pre-wrap;
+}
+
+.ficha-version .boton { width: 100%; }
+.boton:disabled { opacity: .5; cursor: default; }

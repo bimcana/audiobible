@@ -7,7 +7,7 @@ import { repartoVelocidad } from './voz/velocidad.js';
 import { crearMotor, ErrorDeRed } from './voz/motor.js';
 import { crearReproductor } from './voz/reproductor.js';
 import { hablar, callar, hayVozDeDispositivo } from './voz/dispositivo.js';
-import { cargarCatalogo, cargarLibro } from './datos/biblia.js';
+import { cargarCatalogo, cargarLibro, olvidarVersion, LibroAusente } from './datos/biblia.js';
 import { cargarAjustes, guardarAjustes, cargarPosicion, guardarPosicion } from './almacen/ajustes.js';
 import { t, fijarIdioma } from './i18n/textos.js';
 import {
@@ -16,6 +16,7 @@ import {
 import { prepararHoja, hojaAbierta, el } from './ui/hoja.js';
 import { abrirNavegador } from './ui/navegador.js';
 import { abrirVersiones } from './ui/versiones.js';
+import { abrirImportador, abrirGestion } from './ui/importar.js';
 import {
   abrirVoces, abrirVelocidad, abrirTemporizador, abrirTexto, abrirAjustes, etiquetaVelocidad, COLOR_DE_TEMA,
 } from './ui/paneles.js';
@@ -214,10 +215,12 @@ async function irA(libro, cap, {
   let pasajes;
   try {
     pasajes = await modeloDe(version.id, libro, cap);
-  } catch {
+  } catch (err) {
     if (mia !== peticion) return;
     estado.cargando = false;
-    aviso(t('aviso.cargaLibro'));
+    aviso(err instanceof LibroAusente
+      ? t('aviso.libroAusente', { libro: nombreLibro(libro, estado.ajustes.idioma), version: version.nombre })
+      : t('aviso.cargaLibro'));
     if (estado.pasajes.length) pintar();
     return;
   }
@@ -513,6 +516,37 @@ async function cambiarVersion(id) {
   await irA(estado.libro, estado.cap, { version: nueva, vers: estado.pasaje > 0 ? vers : null, leer: leia });
 }
 
+/* ---------- versiones propias ---------- */
+
+function verVersiones() {
+  const idioma = estado.ajustes.idioma;
+  abrirVersiones({
+    catalogo: estado.catalogo, idioma, actual: estado.version.id, libro: estado.libro, cap: estado.cap,
+    alElegir: cambiarVersion,
+    alImportar: () => abrirImportador({ idioma, alTerminar: alGuardarPropia, volver: verVersiones }),
+    alGestionar: (version) => abrirGestion({ version, idioma, alCambiar: alGuardarPropia, alQuitar: alQuitarPropia, volver: verVersiones }),
+  });
+}
+
+async function alGuardarPropia(meta) {
+  olvidarVersion(meta.id);
+  for (const clave of [...modelos.keys()]) if (clave.startsWith(`${meta.id}/`)) modelos.delete(clave);
+  estado.catalogo = await cargarCatalogo();
+  aviso(t('imp.guardada', { version: meta.nombre }));
+  const nueva = estado.catalogo.find((v) => v.id === meta.id);
+  if (estado.version.id === meta.id) estado.version = nueva;       // misma versión, ficha actualizada
+  await irA(estado.libro, estado.cap, { version: nueva, leer: false });
+}
+
+async function alQuitarPropia(version) {
+  olvidarVersion(version.id);
+  estado.catalogo = await cargarCatalogo();
+  aviso(t('imp.quitada', { version: version.nombre }));
+  if (estado.version.id !== version.id) return;
+  const porDefecto = estado.catalogo.find((v) => v.id === (version.idioma === 'en' ? 'kjv' : 'rvg')) ?? estado.catalogo[0];
+  await irA(estado.libro, estado.cap, { version: porDefecto, leer: false });
+}
+
 /* ---------- eventos ---------- */
 
 function conectar() {
@@ -529,10 +563,7 @@ function conectar() {
     alIr: (libro, cap, vers) => irA(libro, cap, { vers }),
   }));
 
-  $('btnVersion').addEventListener('click', () => abrirVersiones({
-    catalogo: estado.catalogo, idioma: estado.ajustes.idioma, actual: estado.version.id,
-    libro: estado.libro, cap: estado.cap, alElegir: cambiarVersion,
-  }));
+  $('btnVersion').addEventListener('click', verVersiones);
 
   $('btnVoz').addEventListener('click', () => abrirVoces({
     voces: estado.voces, idioma: idiomaTexto(), actual: vozActual(), alProbar: probarVoz,
@@ -638,7 +669,7 @@ function irAlPasaje(i) {
 /* ---------- arranque ---------- */
 
 function leerHash() {
-  const m = /^#\/([a-z0-9]+)\/([0-9A-Z]{3})\/(\d+)$/.exec(location.hash);
+  const m = /^#\/([a-z0-9-]+)\/([0-9A-Z]{3})\/(\d+)$/.exec(location.hash);
   if (!m) return null;
   const l = datosLibro(m[2]);
   const cap = Number(m[3]);

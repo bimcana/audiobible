@@ -49,6 +49,7 @@ export function construirPasajes(elementos, { objetivo = 600, maximo = 1100 } = 
 
     separar();
     const verso = { n: e.n, cs: actual.texto.length, ce: 0 };
+    if (e.f) verso.f = e.f;              // versículos unidos: «5-6»
     // Un salto de línea que cerraba el versículo anterior abre este.
     if (lineaPendiente && !(typeof e.x[0] === 'object' && 'l' in e.x[0])) {
       actual.lineas.push({ c: verso.cs, n: 0 });

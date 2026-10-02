@@ -3,7 +3,7 @@
 Guía para retomar el proyecto en otra sesión: **qué es**, **cómo está montado**,
 **qué se probó y descartó** y **qué no se debe romper**.
 
-Última actualización: 2026-10-01 · fases 1 (textos) y 2 (lector y voz) terminadas
+Última actualización: 2026-10-01 · fases 1 (textos), 2 (lector y voz) y 3 (importador) terminadas
 
 ---
 
@@ -17,7 +17,7 @@ Los textos van incluidos; no se suben archivos.
 - **Especificación:** `docs/superpowers/specs/2026-10-01-audiobible-design.md`
 - **Planes por fase:** `docs/superpowers/plans/`
 
-Fases: 1 textos ✅ · 2 lector y voz ✅ · 3 importador local · 4 sin conexión ·
+Fases: 1 textos ✅ · 2 lector y voz ✅ · 3 importador local ✅ · 4 sin conexión ·
 5 estudio · 6 planes, inglés y licencias.
 
 ---
@@ -198,3 +198,77 @@ en la fase 2, interceptando `fetch` en la página:
 
 Lo que **no** se ha probado en dispositivo real: iPhone e iPad (pantalla
 bloqueada, controles del sistema, voz de respaldo sin red).
+
+---
+
+## 8. El importador de Biblias propias (fase 3)
+
+Permite leer una versión con derechos de autor que el lector ya tiene, sin que
+la app la distribuya. El archivo se procesa en el navegador y el resultado se
+guarda en IndexedDB (`src/almacen/propias.js`). **Nada se sube.**
+
+| Ruta | Qué es |
+|---|---|
+| `src/importar/pdf.js` | PDF → trozos de texto con posición, tamaño, tipo de letra y color. Sirve en navegador y en Node. |
+| `src/importar/perfil.js` | Trozos → libros en el formato de AudioBible. Puro; es donde está la inteligencia. |
+| `src/importar/validar.js` | Comprobación contra el canon y contra señales de mala lectura. |
+| `src/importar/importador.js` | Orquesta la lectura, carga pdf.js solo cuando hace falta, empaqueta el archivo de traspaso. |
+| `src/ui/importar.js` | Hojas de importación y de gestión. |
+| `vendor/pdfjs/` | pdf.js 4.10.38 (Apache 2.0), copiado de Lyrio. Sin `cmaps` ni `standard_fonts`: el perfil admitido lleva sus fuentes incrustadas. |
+| `herramientas/probar-importador.mjs` | La prueba contra PDF reales. |
+
+### Qué archivos reconoce
+
+Un solo perfil: libro electrónico convertido a PDF con Calibre, con encabezados
+de capítulo del tipo «JUAN 3». Es el de los cuatro PDF de `NVI/`. Todo se decide
+por tamaño **relativo al cuerpo del texto** y por la sangría de cada renglón;
+la tabla está en la cabecera de `perfil.js`.
+
+### Lo que costó averiguar
+
+**El color sí se puede recuperar.** `getTextContent()` no lo da, pero las
+órdenes de dibujo (`getOperatorList()`) sí, y su texto coincide carácter a
+carácter con el de `getTextContent()` si se ignoran los blancos. Con eso se
+asigna un color a cada carácter. El rojo son las palabras de Jesús; **el azul
+son los enlaces del libro electrónico** (asteriscos de glosario, llamadas de
+nota, navegación entre testamentos) y se descarta. Si en una página no casan
+las cuentas, esa página se lee sin color.
+
+**Los nombres de las fuentes** («LiberationSerif-BoldItalic») salen de
+`page.commonObjs.get(fontName).name`, disponible tras `getOperatorList()`. La
+negrita son títulos de sección; la negrita cursiva, pasajes paralelos.
+
+**Las versalitas son dos tamaños de mayúsculas.** «GENEALOGÍA» llega como «G» a
+16,6 y «ENEALOGÍA» a 11,6: las letras grandes son las mayúsculas reales, las
+pequeñas se pasan a minúscula. «SEÑOR» en el cuerpo (S a 14,4 y EÑOR a 10,8) se
+deja en mayúsculas: no es un número de versículo porque no son cifras.
+
+**La NVI une versículos.** «5-6» en letra pequeña abre el versículo 5 y guarda
+`f: 6`; se muestra «5-6» y no cuenta como hueco.
+
+**Las notas van al final de cada libro**, en letra menor de 0,62 × cuerpo. El
+primer renglón así cierra el capítulo, y todo lo que sigue se ignora hasta el
+próximo encabezado: índices, glosario, tablas de pesos y medidas.
+
+**Un encabezado puede llevar una llamada pegada** («SALMO 9[9]»): nueve salmos
+no se reconocían por eso.
+
+### Cómo se sabe que lee bien
+
+`node herramientas/probar-importador.mjs NVI/*.pdf` sobre los cuatro archivos:
+66 libros, 1 189 capítulos, 31 054 versículos, cero errores, 12 segundos. Los
+únicos avisos son 16 saltos de numeración, y **son exactamente los 16
+versículos que la NVI omite** por crítica textual (Mateo 17:21, 18:11, 23:14;
+Marcos 7:16, 9:44, 9:46, 11:26, 15:28; Lucas 17:36, 23:17; Juan 5:4; Hechos
+8:37, 15:34, 24:7, 28:29; Romanos 16:24). Esa coincidencia es la mejor prueba
+de que no se pierde ni se inventa ningún versículo.
+
+`pruebas/importar.test.mjs` cubre cada regla con páginas inventadas, porque los
+PDF reales no pueden estar en el repositorio.
+
+### El archivo de traspaso
+
+`.audiobible` es el JSON de la versión, comprimido con gzip
+(`CompressionStream`). La NVI ocupa 1,5 MB y se instala en 0,3 segundos. Sirve
+para pasar la versión del ordenador al teléfono sin volver a leer los PDF. Es
+una copia personal del lector: la app no la aloja.

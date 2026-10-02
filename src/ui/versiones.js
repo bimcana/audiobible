@@ -17,15 +17,41 @@ const FUERA = [
 
 const FLECHA = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>';
 
-export function abrirVersiones({ catalogo, idioma, actual, libro, cap, alElegir }) {
+const AJUSTE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>';
+
+export function abrirVersiones({ catalogo, idioma, actual, libro, cap, alElegir, alImportar, alGestionar }) {
   const cuerpo = el('div');
+
+  // Las que el lector añadió, primero: son las que fue a buscar.
+  const propias = catalogo.filter((v) => v.propia);
+  cuerpo.append(el('h3', { text: t('ver.propias') }));
+  if (propias.length) {
+    const lista = el('div', { class: 'lista' });
+    for (const v of propias) {
+      const gestionar = el('button', {
+        type: 'button', class: 'icono', 'aria-label': t('ver.gestionar', { version: v.nombre }), onclick: () => alGestionar(v),
+      });
+      gestionar.innerHTML = AJUSTE;
+      lista.append(el('div', { class: 'fila-voz' },
+        el('button', {
+          type: 'button', class: 'opcion con-sigla', 'aria-current': v.id === actual ? 'true' : null,
+          onclick: () => { cerrarHoja(); alElegir(v.id); },
+        }, el('span', { class: 'sigla', text: v.sigla }), el('span', {}, el('strong', { text: v.nombre }), el('small', { text: t('ver.enDispositivo') }))),
+        gestionar));
+    }
+    cuerpo.append(lista);
+  }
+  cuerpo.append(el('button', { type: 'button', class: 'opcion anadir', onclick: alImportar },
+    el('span', { class: 'sigla', text: '+' }),
+    el('span', {}, el('strong', { text: t('ver.anadir') }), el('small', { text: t('ver.anadirNota') }))));
+
   // Primero el idioma de la interfaz.
   const orden = idioma === 'en' ? ['en', 'es'] : ['es', 'en'];
 
   for (const lengua of orden) {
     cuerpo.append(el('h3', { text: t(`ver.${lengua}`) }));
     const lista = el('div', { class: 'lista' });
-    for (const v of catalogo.filter((x) => x.idioma === lengua)) {
+    for (const v of catalogo.filter((x) => x.idioma === lengua && !x.propia)) {
       lista.append(el('button', {
         type: 'button', class: 'opcion', 'aria-current': v.id === actual ? 'true' : null,
         onclick: () => { cerrarHoja(); alElegir(v.id); },
