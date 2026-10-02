@@ -77,7 +77,7 @@ Elementos y tramos según la sección 3 de la especificación.
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test pruebas/",
+    "test": "node --test \"pruebas/*.test.mjs\"",
     "datos": "node herramientas/preparar.mjs"
   }
 }

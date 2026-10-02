@@ -1,0 +1,9 @@
+{
+  "name": "audiobible",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"pruebas/*.test.mjs\"",
+    "datos": "node herramientas/preparar.mjs"
+  }
+}
