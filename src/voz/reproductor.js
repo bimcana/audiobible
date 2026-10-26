@@ -11,6 +11,26 @@
 // Dos reproductores se turnan: cambiar el src de un <audio> obliga a cargar y
 // decodificar, y ese trabajo era el silencio entre párrafos. Mientras uno
 // suena, el otro ya tiene cargada la unidad siguiente.
+//
+// Con la pantalla bloqueada (sobre todo en iPhone) el sistema suspende la
+// página en cuanto deja de sonar audio, y entonces ya no llega el párrafo
+// siguiente: la lectura se cortaba al cabo de unos minutos. Por eso el audio
+// nunca se calla del todo mientras se lee: si lo siguiente aún no está, suena
+// un silencio en bucle hasta que llega; y lo siguiente se pide con dos
+// unidades de adelanto.
+
+// Un segundo de silencio (WAV, 8 kHz, 8 bits): relleno para los huecos.
+const SILENCIO = (() => {
+  const muestras = 8000;
+  const b = new DataView(new ArrayBuffer(44 + muestras));
+  const texto = (o, t) => [...t].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
+  texto(0, 'RIFF'); b.setUint32(4, 36 + muestras, true); texto(8, 'WAVE');
+  texto(12, 'fmt '); b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true);
+  b.setUint32(24, 8000, true); b.setUint32(28, 8000, true); b.setUint16(32, 1, true); b.setUint16(34, 8, true);
+  texto(36, 'data'); b.setUint32(40, muestras, true);
+  for (let i = 0; i < muestras; i++) b.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([b.buffer], { type: 'audio/wav' }));
+})();
 
 export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
   let actual = crearAudio();
@@ -36,6 +56,27 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
   }
 
   const olvidarRelevo = () => { enRelevo = { unidad: null, clave: '', clip: null }; };
+
+  // Mientras se espera lo siguiente, el reproductor no se calla: suena silencio.
+  function rellenar() {
+    palabras = [];
+    iluminada = -1;
+    actual.loop = true;
+    actual.src = SILENCIO;
+    actual.play().catch(() => {});
+  }
+
+  // Algunos navegadores (Safari en iPhone) solo dejan sonar un <audio> sin un
+  // toque si ya sonó una vez tras un toque. Se «estrenan» los dos al pulsar Leer.
+  function estrenar() {
+    for (const a of [actual, relevo]) {
+      if (a.estrenado) continue;
+      a.estrenado = true;
+      if (a.src && a.src !== SILENCIO) continue;      // ya tiene audio cargado: no se toca
+      a.src = SILENCIO;
+      a.play().then(() => { if (a.src === SILENCIO && !a.loop) a.pause(); }).catch(() => {});
+    }
+  }
 
   function aplicarRitmo(a) {
     a.preservesPitch = true;
@@ -78,22 +119,23 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
       const clave = claveDe(sig);
       const siguienteClip = await clipDe(sig);
       if (f !== ficha || claveDe(sig) !== clave) return;
+      relevo.loop = false;
       relevo.src = siguienteClip.url;
       relevo.load();
       enRelevo = { unidad: sig, clave, clip: siguienteClip };
-      // Una unidad breve (un anuncio) dura un par de segundos: no da tiempo a
-      // pedir lo que le sigue mientras suena. Se pide ya, para que esté listo.
-      if (sig.breve) {
-        const despues = await siguiente(sig);
-        if (despues && f === ficha) clipDe(despues).catch(() => {});
-      }
+      // Y la que viene después, para que una respuesta lenta del motor no deje
+      // un hueco (un anuncio dura un par de segundos: sin esto no daría tiempo).
+      const despues = await siguiente(sig);
+      if (despues && f === ficha) clipDe(despues).catch(() => {});
     } catch { /* sin relevo: se cargará al llegar */ }
   }
 
-  async function reproducir(u, { desdeCaracter = null } = {}) {
+  // continuo: viene de terminar la unidad anterior; el silencio de relleno
+  // sigue sonando hasta que el audio nuevo está listo.
+  async function reproducir(u, { desdeCaracter = null, continuo = false } = {}) {
     const f = ++ficha;
     olvidarRelevo();
-    actual.pause();
+    if (continuo) rellenar(); else actual.pause();
     unidad = u;
     palabras = [];
     iluminada = -1;
@@ -104,6 +146,7 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
       if (f !== ficha) return;
       clip = nuevo;
       palabras = clip.palabras;
+      actual.loop = false;
       if (actual.src !== clip.url) actual.src = clip.url;
       aplicarRitmo(actual);
       if (desdeCaracter !== null && desdeCaracter > 0) {
@@ -125,6 +168,7 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
       prepararRelevo(u);
     } catch (err) {
       if (f !== ficha) return;
+      if (actual.loop) { actual.pause(); actual.loop = false; }
       sonando = false;
       al.estado('pausa');
       al.error(err, u);
@@ -133,9 +177,11 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
 
   async function alTerminar() {
     if (!sonando) return;
+    // El audio del relevo está en el dispositivo (blob): aunque el navegador no
+    // lo haya precargado (Safari no lo hace en segundo plano), se carga al momento.
     const listo = enRelevo.unidad
       && enRelevo.clave === claveDe(enRelevo.unidad)
-      && relevo.readyState >= 2;
+      && relevo.src === enRelevo.clip?.url;
 
     if (listo) {
       [actual, relevo] = [relevo, actual];
@@ -154,30 +200,47 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
         vigilar();
         prepararRelevo(unidad);
       } catch {
-        if (f === ficha) reproducir(unidad);
+        if (f === ficha) reproducir(unidad, { continuo: true });
       }
       return;
     }
 
+    // Lo siguiente aún no está: silencio mientras se averigua y se pide.
+    rellenar();
     const f = ficha;
     let sig = null;
     try { sig = await siguiente(unidad); } catch { /* se trata como final */ }
     if (f !== ficha) return;
     if (!sig) {
+      actual.pause();
+      actual.loop = false;
       sonando = false;
       cancelAnimationFrame(raf);
       al.estado('pausa');
       al.fin();
       return;
     }
-    reproducir(sig);
+    reproducir(sig, { continuo: true });
   }
 
   return {
     reproducir,
 
+    estrenar,
+
+    // Deja de sonar lo que suena, pero mantiene vivo el audio con silencio
+    // hasta la próxima llamada a reproducir (o pausar/detener).
+    esperar() {
+      ficha++;
+      olvidarRelevo();
+      rellenar();
+    },
+
     pausar() {
-      if (!sonando) { ficha++; al.estado('pausa'); return; }
+      // Siempre invalida lo que esté en camino: un audio que llegue después
+      // de pausar no debe sonar.
+      ficha++;
+      if (!sonando) { actual.pause(); actual.loop = false; al.estado('pausa'); return; }
       actual.pause();
       sonando = false;
       cancelAnimationFrame(raf);
@@ -186,7 +249,7 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
 
     // Reanuda donde quedó; false si no hay nada cargado que reanudar.
     reanudar() {
-      if (!unidad || !actual.src || !palabras.length || actual.ended) return false;
+      if (!unidad || !actual.src || actual.loop || !palabras.length || actual.ended) return false;
       aplicarRitmo(actual);
       const f = ficha;
       actual.play().then(() => {
@@ -202,6 +265,7 @@ export function crearReproductor({ clipDe, claveDe, siguiente, ritmo, al }) {
     detener() {
       ficha++;
       actual.pause();
+      actual.loop = false;
       sonando = false;
       cancelAnimationFrame(raf);
       olvidarRelevo();

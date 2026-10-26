@@ -8,7 +8,8 @@ import { t } from '../i18n/textos.js';
 import { abrirHoja, cerrarHoja, el } from './hoja.js';
 
 // guardados(libro) → Promise<Set<número de capítulo>> con el audio ya descargado.
-export function abrirNavegador({ idioma, actual, alIr, guardados = null }) {
+// inicio: 'libros' | 'capitulos' (del libro abierto); sin él, se decide solo.
+export function abrirNavegador({ idioma, actual, alIr, guardados = null, inicio = null }) {
   const ir = (libro, cap, vers = null) => { cerrarHoja(); alIr(libro, cap, vers); };
 
   function campoDeReferencia() {
@@ -86,6 +87,8 @@ export function abrirNavegador({ idioma, actual, alIr, guardados = null }) {
 
   // Con historial, se empieza por los libros, donde están los recientes; sin
   // él, lo habitual es moverse dentro del libro abierto.
-  if (datosLibro(actual.libro).caps > 1 && recientes().length < 2) verCapitulos(actual.libro);
+  if (inicio === 'capitulos') verCapitulos(actual.libro);
+  else if (inicio === 'libros') verLibros();
+  else if (datosLibro(actual.libro).caps > 1 && recientes().length < 2) verCapitulos(actual.libro);
   else verLibros();
 }

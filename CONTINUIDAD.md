@@ -638,3 +638,38 @@ lectura espera 360 ms por si llega el segundo.
 **Compartir.** La biblioteca pasa de 82 a 473 fotos, todas miradas y
 etiquetadas (catálogo completo de picsum.photos). La tira se abre de 24 en 24
 con «N más» y se recoge con «Mostrar menos».
+
+## 20. Pantalla bloqueada, controles de bloqueo y encabezado fijo (2026-10-26)
+
+**La lectura se cortaba con la pantalla bloqueada** al cabo de unos minutos (y
+a veces al cambiar de libro). Con la pantalla apagada, iOS suspende la página
+en cuanto deja de sonar audio: si al terminar un párrafo el siguiente aún no
+estaba listo, el silencio real bastaba para que la página se durmiera y el
+párrafo pedido no llegara nunca. En `src/voz/reproductor.js`:
+- **Nunca hay silencio real mientras se lee**: si lo siguiente no está, suena
+  un WAV de silencio en bucle (`rellenar`, `SILENCIO`) hasta que llega.
+  También al saltar de capítulo leyendo (`reproductor.esperar()` en `irA`).
+- **Dos unidades de adelanto**: además del relevo, se pide ya el audio de la
+  unidad que viene después (antes solo tras un anuncio).
+- El relevo se usa aunque Safari no lo haya precargado (antes exigía
+  `readyState >= 2`, que en segundo plano no llega): el audio es un blob local.
+- `estrenar()`: los dos `<audio>` suenan una vez dentro del toque de Leer, para
+  que Safari los deje sonar luego sin toque.
+- `pausar()` siempre invalida lo que esté en camino.
+No se ha podido probar en un iPhone real: verificado en el navegador que la
+lectura sigue de capítulo en capítulo y de libro en libro (2 Juan → 3 Juan,
+en RVR1960 y en RVG) sin volver a «cargando».
+
+**Pantalla bloqueada y auriculares** (`navigator.mediaSession`): anterior y
+siguiente cambian de capítulo. «Anterior» funciona como en una app de música
+(`atras()` en `src/app.js`): el primer toque vuelve al comienzo del capítulo;
+otro toque en 4 s, o ya al comienzo, va al capítulo anterior. El botón ⏮ del
+muelle hace lo mismo. `play` y `pause` ya no alternan a ciegas. No registrar
+`seekbackward/seekforward`: iOS mostraría ±10 s en vez de anterior/siguiente.
+
+**Encabezado**: el libro y el capítulo son dos botones (`#btnLibro`,
+`#btnCapitulo`). El libro abre la lista de libros; el capítulo, la rejilla de
+capítulos del libro abierto (`abrirNavegador({ inicio })`). La barra superior
+ya no se oculta al leer (solo el muelle, las pestañas y el versículo del día).
+En móvil, un nombre largo se corta con puntos suspensivos; `.vista` lleva
+`grid-template-columns: minmax(0, 1fr)` para que el contenido no la ensanche.

@@ -17,6 +17,8 @@ const TEXTOS = {
     'volver': 'Volver',
 
     'nav.titulo': 'Ir a',
+    'nav.libro': 'Libro',
+    'nav.capitulo': 'Capítulo',
     'nav.buscar': 'Libro, capítulo o versículo',
     'nav.ejemplo': 'Por ejemplo: jn 3 16 · salmo 23 · 1 co 13',
     'nav.noEncontrado': 'No reconozco esa referencia.',
@@ -347,6 +349,8 @@ const TEXTOS = {
     'volver': 'Back',
 
     'nav.titulo': 'Go to',
+    'nav.libro': 'Book',
+    'nav.capitulo': 'Chapter',
     'nav.buscar': 'Book, chapter or verse',
     'nav.ejemplo': 'For example: jn 3 16 · psalm 23 · 1 co 13',
     'nav.noEncontrado': 'That reference is not recognized.',

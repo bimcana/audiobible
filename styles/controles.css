@@ -12,19 +12,51 @@
   transition: opacity .3s, transform .3s var(--suave);
 }
 
+/* Libro y capítulo: dos botones. El libro abre la lista de libros; el
+   capítulo, la rejilla de capítulos del libro abierto. */
 .cima-ref {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cima-libro {
   display: inline-flex;
   align-items: center;
-  gap: .4rem;
+  gap: .35rem;
+  min-width: 0;
   min-height: 2.75rem;
   font-family: var(--serif);
   font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: -.005em;
 }
-.cima-ref svg { color: var(--tinta-2); }
+.cima-libro span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cima-libro svg, .cima-capitulo svg { flex: none; color: var(--tinta-2); }
+.cima-capitulo {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  flex: none;
+  min-height: 2.25rem;
+  min-width: 2.75rem;
+  padding: 0 .6rem 0 .75rem;
+  border: 1px solid var(--linea);
+  border-radius: 99px;
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+  transition: border-color .15s;
+}
+.cima-capitulo:hover { border-color: var(--tinta-2); }
 
-.cima-lado { display: flex; align-items: center; gap: .15rem; }
+.cima-lado { display: flex; align-items: center; gap: .15rem; flex: none; }
+@media (max-width: 420px) {
+  .cima-libro { font-size: 1.08rem; }
+  .cima-version { padding: 0 .6rem; }
+}
 
 .cima-version {
   min-height: 2.25rem;
@@ -39,8 +71,7 @@
 }
 .cima-version:hover { color: var(--tinta); border-color: var(--tinta-2); }
 
-/* Leyendo, la barra se retira; vuelve al mover el puntero o tocar arriba. */
-.leyendo.recogido #cima { opacity: 0; transform: translateY(-40%); pointer-events: none; }
+/* La barra superior no se retira nunca: el libro y el capítulo siempre a mano. */
 
 /* --- muelle --- */
 
@@ -546,7 +577,7 @@ mark { background: var(--m-amarillo); color: inherit; border-radius: 3px; paddin
 
 /* --- vistas y pestañas --- */
 
-.vista { min-height: 0; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.vista { min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
 
 #pestanas {
   display: grid;

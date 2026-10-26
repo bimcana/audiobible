@@ -184,7 +184,10 @@ function rotular() {
   $('vozNombre').textContent = nombreDeVoz();
   $('btnVelocidad').textContent = etiquetaVelocidad(estado.ajustes.velocidad);
   if (estado.version) {
-    $('refTexto').textContent = tituloCapitulo(estado.libro, estado.cap, idiomaTexto());
+    $('refLibro').textContent = nombreLibro(estado.libro, idiomaTexto());
+    $('refCapitulo').textContent = String(estado.cap);
+    $('btnLibro').setAttribute('aria-label', `${t('nav.libro')}: ${nombreLibro(estado.libro, idiomaTexto())}`);
+    $('btnCapitulo').setAttribute('aria-label', `${t('nav.capitulo')}: ${estado.cap}`);
     $('btnVersion').textContent = versionParalela() ? `${estado.version.sigla} · ${versionParalela().sigla}` : estado.version.sigla;
     $('btnVersion').setAttribute('aria-label', `${t('ver.titulo')}: ${estado.version.nombre}`);
     document.title = `${tituloCapitulo(estado.libro, estado.cap, idiomaTexto())} · ${estado.version.sigla} · AudioBible`;
@@ -285,7 +288,11 @@ async function irA(libro, cap, {
   vers = null, pasaje = 0, version = estado.version, leer = estado.sonando || estado.dispositivo,
 } = {}) {
   const mia = ++peticion;
-  detenerLectura();
+  // Si se estaba leyendo con el motor, se pasa a silencio en vez de parar: con
+  // la pantalla bloqueada, parar del todo dejaría al sistema suspender la
+  // página antes de que empiece el capítulo nuevo.
+  const enEspera = leer && reproductor.sonando;
+  if (enEspera) { callar(); estado.dispositivo = false; reproductor.esperar(); } else detenerLectura();
   estado.cargando = true;
   if (libro !== estado.libro || cap !== estado.cap || version !== estado.version) mensajeCarga($('capitulo'), '…');
   let pasajes;
@@ -295,6 +302,7 @@ async function irA(libro, cap, {
   } catch (err) {
     if (mia !== peticion) return;
     estado.cargando = false;
+    detenerLectura();
     aviso(err instanceof LibroAusente
       ? t('aviso.libroAusente', { libro: nombreLibro(libro, idiomaTexto()), version: version.nombre })
       : t('aviso.cargaLibro'));
@@ -324,7 +332,8 @@ async function irA(libro, cap, {
     escena.scrollTo({ top: 0, behavior: 'instant' });
   }
   if (otraVersion && estado.catalogo.length) pintarDelDia();
-  if (leer) leerDesde(estado.pasaje);
+  // Si mientras cargaba se pulsó pausa, no se arranca.
+  if (leer && (!enEspera || reproductor.sonando)) leerDesde(estado.pasaje);
 }
 
 /* ---------- la voz ---------- */
@@ -477,7 +486,7 @@ function leerDesde(i, desdeCaracter = null) {
   if (estado.cargando || !estado.pasajes[i]) return;
   callar();
   estado.dispositivo = false;
-  reproductor.reproducir(unidadPasaje(i), { desdeCaracter });
+  reproductor.reproducir(unidadPasaje(i), { desdeCaracter, continuo: reproductor.sonando });
 }
 
 function detenerLectura() {
@@ -490,6 +499,7 @@ function detenerLectura() {
 
 function alternarLectura() {
   desbloquearVoz();
+  reproductor.estrenar();
   if (estado.dispositivo) { detenerLectura(); return; }
   if (reproductor.sonando || $('btnLeer').dataset.estado === 'cargando') { reproductor.pausar(); return; }
   if (reproductor.unidad && reproductor.reanudar()) return;
@@ -509,6 +519,22 @@ function alternarRepeticion() {
 function saltarCapitulo(paso) {
   const destino = vecino(estado.libro, estado.cap, paso);
   if (destino) irA(destino.libro, destino.cap);
+}
+
+// «Anterior», como en una app de música: el primer toque vuelve al comienzo
+// del capítulo; otro toque en pocos segundos (o ya al comienzo), al anterior.
+let ultimoAtras = 0;
+function atras() {
+  const avanzado = estado.pasaje > 0 || reproductor.caracter > 60;
+  const seguido = Date.now() - ultimoAtras < 4000;
+  ultimoAtras = Date.now();
+  if (avanzado && !seguido) {
+    estado.desplazadoEn = 0;
+    $('escena').scrollTo({ top: 0, behavior: 'smooth' });
+    irA(estado.libro, estado.cap, { pasaje: 0 });
+  } else {
+    saltarCapitulo(-1);
+  }
 }
 
 // Tras cambiar de voz o de velocidad: el audio ya cargado puede no valer.
@@ -908,15 +934,19 @@ function conectar() {
 
   $('btnLeer').addEventListener('click', alternarLectura);
   $('btnRepetir').addEventListener('click', alternarRepeticion);
-  $('btnAnterior').addEventListener('click', () => saltarCapitulo(-1));
+  $('btnAnterior').addEventListener('click', atras);
   $('btnSiguiente').addEventListener('click', () => saltarCapitulo(1));
 
-  $('btnReferencia').addEventListener('click', () => abrirNavegador({
+  // El libro abre la lista de libros; el capítulo, la rejilla de capítulos del libro abierto.
+  const navegar = (inicio) => abrirNavegador({
     idioma: idiomaTexto(),
     actual: { libro: estado.libro, cap: estado.cap },
     alIr: (libro, cap, vers) => irA(libro, cap, { vers }),
     guardados: capitulosConAudio,
-  }));
+    inicio,
+  });
+  $('btnLibro').addEventListener('click', () => navegar('libros'));
+  $('btnCapitulo').addEventListener('click', () => navegar('capitulos'));
 
   $('btnVersion').addEventListener('click', verVersiones);
   $('btnNotas').addEventListener('click', abrirNotas);
@@ -1021,10 +1051,13 @@ function conectar() {
   });
 
   if ('mediaSession' in navigator) {
+    // Pantalla bloqueada y auriculares. Sin «seekbackward/seekforward»: si
+    // estuvieran, iOS mostraría ±10 s en lugar de anterior y siguiente.
     const acciones = {
-      play: alternarLectura,
-      pause: alternarLectura,
-      previoustrack: () => saltarCapitulo(-1),
+      play: () => { if (!estado.sonando && !estado.dispositivo) alternarLectura(); },
+      pause: () => { if (estado.sonando || estado.dispositivo || reproductor.sonando) alternarLectura(); },
+      stop: detenerLectura,
+      previoustrack: atras,
       nexttrack: () => saltarCapitulo(1),
     };
     for (const [accion, hacer] of Object.entries(acciones)) {
