@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import { leerClave } from '../src/importar/privada.js';
 
 const ALFABETO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -41,4 +42,20 @@ test('lo que cifra la herramienta lo abre el navegador con la misma clave, y sol
   const texto = base32(clave).match(/.{1,4}/g).join('-');
   assert.equal(Buffer.from(await abrir(leerClave(texto))).toString(), claro.toString());
   await assert.rejects(abrir(crypto.randomBytes(16)));
+});
+
+test('lo alojado en privado/ va cifrado y el índice cuadra con los archivos', () => {
+  const indice = JSON.parse(fs.readFileSync('privado/indice.json', 'utf8'));
+  assert.ok(indice.includes('nvi') && indice.includes('rv1960'));
+  for (const id of indice) {
+    const datos = fs.readFileSync(`privado/${id}.bin`);
+    assert.equal(datos.subarray(0, 3).toString(), 'AB1');
+    // Ni rastro de texto legible: un gzip o un JSON sin cifrar empezarían así.
+    assert.ok(!datos.subarray(15).toString('latin1').includes('audiobible'));
+  }
+  const llaves = JSON.parse(fs.readFileSync('privado/llaves.json', 'utf8'));
+  for (const [id, envuelta] of Object.entries(llaves)) {
+    assert.ok(indice.includes(id));
+    assert.equal(Buffer.from(envuelta, 'base64').length, 12 + 16 + 16);   // iv + clave + etiqueta
+  }
 });

@@ -574,16 +574,59 @@ export function crearEstudio(ctx) {
       capitulo.addEventListener(tipo, () => { clearTimeout(reloj); origen = null; });
     }
     capitulo.addEventListener('contextmenu', (e) => {
+      if (raiz.classList.contains('texto-libre')) return;      // menú del sistema sobre lo seleccionado
       const n = versoDe(e.target);
       if (n === null) return;
       e.preventDefault();
       if (!acabaDeSerLarga()) seleccionarLargo(n, e.target);
     });
+
+    // En pantallas táctiles el texto no se selecciona al dejar el dedo: esa
+    // pulsación abre el menú de resaltar. Con dos toques seguidos sí se
+    // selecciona, como en cualquier texto, para copiar un trozo suelto.
+    let toque = null;
+    capitulo.addEventListener('pointerup', (e) => {
+      if (e.pointerType !== 'touch' || acabaDeSerLarga()) return;
+      const ahora = { t: Date.now(), x: e.clientX, y: e.clientY };
+      const w = e.target.closest('.w');
+      if (w && toque && ahora.t - toque.t < DOBLE_TOQUE && Math.hypot(ahora.x - toque.x, ahora.y - toque.y) < 30) {
+        toque = null;
+        textoLibre(w);
+      } else {
+        toque = ahora;
+        // Un toque suelto sin nada seleccionado devuelve el modo normal.
+        if (raiz.classList.contains('texto-libre') && !getSelection()?.toString()) raiz.classList.remove('texto-libre');
+      }
+    });
   }
+
+  const DOBLE_TOQUE = 350;
+  const raiz = document.documentElement;
+  function textoLibre(w) {
+    raiz.classList.add('texto-libre');
+    ultimoLibre = Date.now();
+    const rango = document.createRange();
+    rango.selectNodeContents(w);
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(rango);
+  }
+  // Se vuelve al modo normal en cuanto deja de haber texto seleccionado.
+  let ultimoLibre = 0;
+  const revisarLibre = () => {
+    if (raiz.classList.contains('texto-libre') && !getSelection()?.toString()) raiz.classList.remove('texto-libre');
+  };
+  document.addEventListener('selectionchange', () => {
+    if (!raiz.classList.contains('texto-libre')) return;
+    // Justo al seleccionar la palabra la selección aún puede ir vacía.
+    const espera = 400 - (Date.now() - ultimoLibre);
+    if (espera > 0) setTimeout(revisarLibre, espera);
+    else revisarLibre();
+  });
 
   // Devuelve true si el toque lo ha gastado el estudio y no debe mover la lectura.
   function alTocar(e) {
-    if (acabaDeSerLarga()) return true;
+    if (acabaDeSerLarga() || raiz.classList.contains('texto-libre')) return true;
     const sup = e.target.closest('sup.vn');
     if (sup?.dataset.v) { alternar(Number(sup.dataset.v)); return true; }
     if (seleccion.size && e.target.closest('.w')) { alternar(versoDe(e.target)); return true; }

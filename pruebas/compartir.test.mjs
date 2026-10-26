@@ -6,7 +6,7 @@ import { versiculoDelDia, cuantas } from '../src/datos/versiculo-del-dia.js';
 
 test('las fotos no se repiten y todas llevan algún tema', () => {
   assert.equal(new Set(FOTOS.map((f) => f.id)).size, FOTOS.length);
-  assert.ok(FOTOS.length >= 60);
+  assert.ok(FOTOS.length >= 400);
   assert.ok(FOTOS.every((f) => f.temas.length >= 1));
   assert.equal(urlFoto(24, 1080, 1350), 'https://picsum.photos/id/24/1080/1350');
   assert.ok(LISOS.length >= 4);

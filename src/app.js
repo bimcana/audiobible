@@ -9,7 +9,7 @@ import { crearReproductor } from './voz/reproductor.js';
 import { crearDescargas } from './voz/descargas.js';
 import { capituloGuardado, capitulosGuardados, textosDeVoz } from './voz/guardado.js';
 import { usoDeAudio, borrarAudio } from './almacen/audio.js';
-import { hablar, callar, hayVozDeDispositivo } from './voz/dispositivo.js';
+import { hablar, callar, hayVozDeDispositivo, desbloquearVoz } from './voz/dispositivo.js';
 import { cargarCatalogo, cargarLibro, olvidarVersion, LibroAusente } from './datos/biblia.js';
 import { cargarAjustes, guardarAjustes, cargarPosicion, guardarPosicion } from './almacen/ajustes.js';
 import { t, fijarIdioma } from './i18n/textos.js';
@@ -21,7 +21,7 @@ import { abrirNavegador } from './ui/navegador.js';
 import { abrirVersiones } from './ui/versiones.js';
 import { abrirImportador, abrirGestion } from './ui/importar.js';
 import { crearEstudio } from './estudio.js';
-import { desbloquear } from './importar/privada.js';
+import { desbloquear, sincronizarPrivadas } from './importar/privada.js';
 import { crearCompartir } from './ui/compartir.js';
 import { versiculoDelDia } from './datos/versiculo-del-dia.js';
 import { anotar } from './almacen/historial.js';
@@ -444,13 +444,17 @@ const reproductor = crearReproductor({
         siguienteUnidad(u).then((sig) => sig && reproductor.reproducir(sig));
         return;
       }
-      if (err instanceof ErrorDeRed && hayVozDeDispositivo(idiomaTexto())) {
-        aviso(t('aviso.dispositivo'));
+      if (err?.name === 'AbortError') return;
+      // El motor puede fallar por la red o por su cuenta (Microsoft cambia a
+      // veces las condiciones del servicio): en ambos casos la lectura sigue con
+      // la voz del dispositivo, si la hay.
+      const red = err instanceof ErrorDeRed;
+      console.warn('Motor de voz:', err);
+      if (hayVozDeDispositivo(idiomaTexto())) {
+        aviso(t(red ? 'aviso.dispositivo' : 'aviso.motorFallaDispositivo'), 6000);
         leerConDispositivo(u);
-      } else if (err instanceof ErrorDeRed) {
-        aviso(t('aviso.sinRed'));
-      } else if (err?.name !== 'AbortError') {
-        aviso(t('aviso.error', { detalle: err?.message ?? '' }));
+      } else {
+        aviso(t(red ? 'aviso.sinRed' : 'aviso.motorFalla'), 6000);
       }
     },
   },
@@ -485,6 +489,7 @@ function detenerLectura() {
 }
 
 function alternarLectura() {
+  desbloquearVoz();
   if (estado.dispositivo) { detenerLectura(); return; }
   if (reproductor.sonando || $('btnLeer').dataset.estado === 'cargando') { reproductor.pausar(); return; }
   if (reproductor.unidad && reproductor.reanudar()) return;
@@ -719,7 +724,7 @@ async function probarVoz(v) {
     muestra.src = clip.url;
     await muestra.play();
   } catch (err) {
-    aviso(t(err instanceof ErrorDeRed ? 'aviso.sinRed' : 'aviso.error', { detalle: err?.message ?? '' }));
+    aviso(t(err instanceof ErrorDeRed ? 'aviso.sinRed' : 'aviso.motorFalla'));
   }
 }
 
@@ -838,7 +843,8 @@ async function escucharSuelto(texto) {
     muestra.src = clip.url;
     await muestra.play();
   } catch (err) {
-    aviso(t(err instanceof ErrorDeRed ? 'aviso.sinRed' : 'aviso.error', { detalle: err?.message ?? '' }));
+    if (hayVozDeDispositivo(idiomaTexto())) { hablar({ texto, idioma: idiomaTexto(), ritmo: Math.min(2, reparto().total), alLimite() {}, alFin() {} }); return; }
+    aviso(t(err instanceof ErrorDeRed ? 'aviso.sinRed' : 'aviso.motorFalla'));
   }
 }
 
@@ -874,6 +880,16 @@ async function alGuardarPropia(meta) {
   const nueva = estado.catalogo.find((v) => v.id === meta.id);
   if (estado.version.id === meta.id) estado.version = nueva;       // misma versión, ficha actualizada
   await irA(estado.libro, estado.cap, { version: nueva, leer: false });
+}
+
+// Versiones privadas alojadas después de que este dispositivo escribiera la
+// clave: llegan solas al abrir la app.
+async function traerPrivadas() {
+  const nuevas = await sincronizarPrivadas();
+  if (!nuevas.length) return;
+  for (const meta of nuevas) olvidarVersion(meta.id);
+  estado.catalogo = await cargarCatalogo();
+  aviso(t('priv.llegaron', { versiones: nuevas.map((v) => `${v.nombre} (${v.sigla})`).join(', ') }), 7000);
 }
 
 async function alQuitarPropia(version) {
@@ -936,7 +952,14 @@ function conectar() {
       cambiarAjustes(parche);
       if (estado.ajustes.idioma !== idiomaAntes) $('btnAjustes').click();     // la hoja, en el idioma nuevo
     },
-    privada: { desbloquear, alDesbloquear: (ficha) => { cerrarHoja(); alGuardarPropia(ficha); } },
+    privada: {
+      desbloquear,
+      async alDesbloquear(fichas) {
+        cerrarHoja();
+        await alGuardarPropia(fichas[0]);
+        if (fichas.length > 1) aviso(t('priv.abiertas', { versiones: fichas.map((f) => f.sigla).join(' · ') }), 6000);
+      },
+    },
     alVerLicencias: () => abrirLicencias({ catalogo: estado.catalogo, volver: () => $('btnAjustes').click() }),
     almacen: {
       uso: usoDeAudio,
@@ -953,9 +976,13 @@ function conectar() {
 
   // Con los controles ocultos, el primer toque solo los trae de vuelta: no mueve la lectura.
   let tocoOculto = false;
-  document.addEventListener('pointerdown', () => { tocoOculto = raiz.classList.contains('recogido'); }, { capture: true, passive: true });
+  let puntero = 'mouse';
+  document.addEventListener('pointerdown', (e) => { tocoOculto = raiz.classList.contains('recogido'); puntero = e.pointerType; }, { capture: true, passive: true });
 
   // Un toque en cualquier palabra lleva la lectura al comienzo de su oración.
+  // Con el dedo se espera un instante: si llega un segundo toque, era para
+  // seleccionar texto (ver estudio.js) y la lectura no se mueve.
+  let relojToque = 0;
   $('capitulo').addEventListener('click', (e) => {
     if (tocoOculto) { tocoOculto = false; return; }
     if (estudio.alTocar(e)) return;
@@ -964,8 +991,14 @@ function conectar() {
     const i = Number(w.closest('.pasaje').dataset.i);
     const v = estado.vista[i];
     const oracion = v.oraciones[v.palabras[Number(w.dataset.w)].k];
-    estado.desplazadoEn = 0;
-    leerDesde(i, oracion.cs);
+    const ir = () => {
+      if (raiz.classList.contains('texto-libre') || estado.vista[i] !== v) return;
+      estado.desplazadoEn = 0;
+      leerDesde(i, oracion.cs);
+    };
+    clearTimeout(relojToque);
+    if (puntero === 'touch') relojToque = setTimeout(ir, 360);
+    else ir();
   });
 
   const escena = $('escena');
@@ -1065,6 +1098,7 @@ async function arrancar() {
   guardarAjustes(estado.ajustes);
   pintarDelDia();
   cargarVoces();
+  traerPrivadas();
   // El service worker deja la app y los textos abiertos disponibles sin conexión.
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 }

@@ -601,3 +601,40 @@ Buscar y Compartir se vuelven a montar. El temario sigue al idioma de la app.
   `herramientas/iconos.py`, centro 259,249): el blanco es igual arriba y abajo.
   La cinta, más corta, cuelga dentro del margen inferior. Los enlaces del icono
   en `index.html` llevan `?v=4`.
+
+## 19. RVR1960 privada, voz de respaldo, selección y más fotos (2026-10-26)
+
+**Error 403 al escuchar.** Microsoft cambió las condiciones de su servicio de
+voz y `edge-tts` 7.2.x recibe 403 (`Invalid response status`). La 7.3.1
+funciona (probado en local). El arreglo va en el motor de Lyrio
+(`Audio-PDF/deploy/Lyrio/motor-voz/requirements.txt` → `edge-tts>=7.3.1`),
+que hay que subir a su repositorio y desplegar a mano en Render (**Manual
+Deploy**). Mientras tanto, y para la próxima vez:
+- Cualquier fallo del motor (no solo la falta de red) pasa a la voz del
+  dispositivo, con un aviso legible; ya no se muestra la URL técnica.
+- La voz del dispositivo elige la mejor del idioma (mejorada/natural/premium).
+- En iOS la síntesis se «estrena» al pulsar Leer (`desbloquearVoz`), para que
+  el respaldo pueda arrancar después sin un toque.
+
+**RVR1960, cifrada con la misma clave que la NVI.**
+| Pieza | Qué hace |
+|---|---|
+| `herramientas/convertir-rv1960.py` | PDF (edición de siguiendosuspisadas.com.ar, Word sin negritas ni colores) → JSON. Deduce títulos, capítulos, encabezados de salmos, poesía y párrafos por la disposición de las líneas; busca los números de versículo en orden. Repara erratas del PDF (Gn 30:7-8 falta en el original, Sal 47 numerado hasta 10, «x6*», «fb*», «11\c», «=» por «-») y despega ~480 palabras pegadas tras vocal con tilde («estáen»). Copia de la NVI las palabras de Jesús donde la correspondencia es segura (~1900 versículos). Resultado: 66 libros, 1189 capítulos, 31 103 versículos, cero errores de `validarImportada`. |
+| `herramientas/cifrar-version.mjs … rv1960 --clave-de nvi` | Cifra con la clave de la NVI y escribe `privado/llaves.json`: la clave común cifrada con la huella SHA-256 del libro de Juan de la NVI tal como se guarda. |
+| `src/importar/privada.js` | `desbloquear` abre todas las versiones que abre la clave y la recuerda en el dispositivo (`audiobible-llave`). `sincronizarPrivadas`, al arrancar, descarga las que falten: con la clave recordada o, en dispositivos que abrieron la NVI antes de esto, recuperándola de `llaves.json` con la NVI guardada. Así la RVR1960 llega sola. |
+| `sw.js` | No guarda copia de `privado/` (va cifrado y se guarda descifrado en IndexedDB). |
+
+Para volver a generar: `python herramientas/convertir-rv1960.py <pdf> herramientas/.cache/rv1960.json <nvi.json>`
+y después `node herramientas/cifrar-version.mjs herramientas/.cache/rv1960.json rv1960 --clave-de nvi`.
+El JSON intermedio vive en `herramientas/.cache/` (ignorado): **nunca se sube en claro**.
+
+**Selección de texto en pantallas táctiles.** Dejar el dedo ya no selecciona
+texto (`user-select: none` en `#capitulo` con `pointer: coarse`): abre el menú
+de resaltar. Dos toques seguidos seleccionan la palabra con la selección del
+sistema (`.texto-libre`), para copiar un trozo; se vuelve al modo normal al
+quitar la selección o con un toque suelto. Con el dedo, el toque que mueve la
+lectura espera 360 ms por si llega el segundo.
+
+**Compartir.** La biblioteca pasa de 82 a 473 fotos, todas miradas y
+etiquetadas (catálogo completo de picsum.photos). La tira se abre de 24 en 24
+con «N más» y se recoge con «Mostrar menos».

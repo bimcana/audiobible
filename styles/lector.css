@@ -261,3 +261,11 @@ p.capitular.suelta {
 .dia-texto { margin: .2rem 0 .5rem; font-family: var(--lectura); font-size: 1.22rem; line-height: 1.5; text-wrap: pretty; }
 .dia-ref { margin: 0 0 .8rem; font-size: .8rem; letter-spacing: .06em; color: var(--tinta-2); }
 .leyendo #delDia { display: none; }
+
+/* --- en pantallas táctiles, dejar el dedo no selecciona texto ---
+   La pulsación larga abre el menú de resaltar, notas y marcadores; dos toques
+   seguidos pasan a selección normal (.texto-libre), para copiar un trozo. */
+@media (hover: none) and (pointer: coarse) {
+  #capitulo { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .texto-libre #capitulo { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+}

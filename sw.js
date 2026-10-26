@@ -54,6 +54,9 @@ self.addEventListener('fetch', (evento) => {
   }
   if (url.origin !== self.location.origin) return;       // el motor de voz va directo a la red
 
+  // Las versiones privadas van cifradas y se guardan descifradas en IndexedDB:
+  // no tiene sentido guardar aquí otra copia.
+  if (url.pathname.includes('/privado/')) return;
   if (url.pathname.includes('/data/')) evento.respondWith(guardadoPrimero(peticion, DATOS));
   else evento.respondWith(redPrimero(peticion, APP));
 });

@@ -8,7 +8,23 @@ if (sintesis) {
   sintesis.addEventListener?.('voiceschanged', refrescar);
 }
 
-const vozPara = (idioma) => voces.find((v) => v.lang.toLowerCase().startsWith(idioma)) ?? null;
+// Entre las voces del idioma, la mejor que haya: las «mejoradas» o «naturales»
+// suenan mucho más humanas que las básicas.
+const CALIDAD = /premium|enhanced|mejorada|natural|neural|online/i;
+const vozPara = (idioma) => {
+  const delIdioma = voces.filter((v) => v.lang.toLowerCase().startsWith(idioma));
+  return delIdioma.find((v) => CALIDAD.test(v.name)) ?? delIdioma.find((v) => v.default) ?? delIdioma[0] ?? null;
+};
+
+// iOS solo deja hablar al navegador si la primera vez fue dentro de un toque.
+// Se «estrena» con un texto vacío al pulsar Leer, para que el respaldo pueda
+// arrancar más tarde, cuando el motor falle sin que nadie esté tocando.
+let estrenada = false;
+export function desbloquearVoz() {
+  if (estrenada || !sintesis) return;
+  estrenada = true;
+  try { sintesis.speak(new SpeechSynthesisUtterance('')); } catch { /* sin síntesis */ }
+}
 
 export const hayVozDeDispositivo = (idioma) => Boolean(sintesis && vozPara(idioma));
 

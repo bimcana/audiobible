@@ -15,6 +15,7 @@ const FUENTES = {
 const SANS = '"Instrument Sans", system-ui, sans-serif';
 const MARGEN = 104;
 const VISIBLES = 12;                 // miniaturas de foto que se muestran de entrada
+const TANDA = 24;                    // las que añade cada «Más fotos»
 
 // Parte un texto en renglones que quepan en el ancho dado.
 function renglones(ctx, texto, ancho) {
@@ -39,7 +40,7 @@ export function crearCompartir({ contenedor, aviso }) {
   const ctx = lienzo.getContext('2d');
   const fotos = new Map();           // "id/alto" → Promise<HTMLImageElement>
   let turno = 0;
-  let todasLasFotos = false;
+  let cuantas = VISIBLES;              // miniaturas de foto a la vista; crece con «Más fotos»
 
   function cargarFoto(id, alto) {
     const clave = `${id}/${alto}`;
@@ -202,7 +203,7 @@ export function crearCompartir({ contenedor, aviso }) {
   function pintarFondos() {
     tira.replaceChildren();
     const sugeridas = fotosPara(estado.texto);
-    for (const foto of todasLasFotos ? sugeridas : sugeridas.slice(0, VISIBLES)) {
+    for (const foto of sugeridas.slice(0, cuantas)) {
       const b = el('button', { type: 'button', 'data-tipo': 'foto', 'data-id': foto.id, 'aria-label': t('comp.foto', { tema: t(`fondo.${foto.temas[0]}`) }), onclick: () => { estado.fondo = { tipo: 'foto', id: foto.id }; marcarFondo(); dibujar(); } },
         el('img', { src: urlFoto(foto.id, 120, 150), alt: '', loading: 'lazy', width: 60, height: 75 }));
       tira.append(b);
@@ -217,8 +218,13 @@ export function crearCompartir({ contenedor, aviso }) {
         el('img', { src: propia.src, alt: '', width: 60, height: 75 }));
       tira.prepend(b);
     }
-    if (!todasLasFotos) {
-      tira.append(el('button', { type: 'button', class: 'mas', text: t('comp.masFotos', { n: FOTOS.length - VISIBLES }), onclick: () => { todasLasFotos = true; pintarFondos(); } }));
+    // Las fotos se abren por tandas, y se pueden volver a recoger.
+    const quedan = FOTOS.length - cuantas;
+    if (quedan > 0) {
+      tira.append(el('button', { type: 'button', class: 'mas', text: t('comp.masFotos', { n: Math.min(TANDA, quedan) }), onclick: () => { cuantas += TANDA; pintarFondos(); } }));
+    }
+    if (cuantas > VISIBLES) {
+      tira.append(el('button', { type: 'button', class: 'mas', text: t('comp.menosFotos'), onclick: () => { cuantas = VISIBLES; pintarFondos(); tira.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }));
     }
     marcarFondo();
   }
@@ -288,7 +294,7 @@ export function crearCompartir({ contenedor, aviso }) {
     abrir({ texto, referencia, sigla }) {
       Object.assign(estado, { texto, referencia, sigla });
       estado.fondo = { tipo: 'foto', id: fotosPara(texto)[0].id };
-      todasLasFotos = false;
+      cuantas = VISIBLES;
       titulo.textContent = `${referencia} · ${sigla}`;
       vacio.hidden = true;
       taller.hidden = false;
